@@ -19,7 +19,8 @@ void UChassisComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	Deceleration(); 
+	Deceleration();
+	RevertHandle(); 
 }
 
 void UChassisComponent::Accelerator(float Difference)
@@ -37,6 +38,37 @@ void UChassisComponent::Accelerator(float Difference)
 	}
 }
 
+void UChassisComponent::Deceleration()
+{
+	if (!Engine.bPressedAccelerator && Engine.RPM)
+	{
+		Engine.RPM += 10.0f * (Engine.RPM > 0 ? -1 : 1); 
+	}
+}
+
+void UChassisComponent::RotateHandle(float Dir)
+{
+	if (Dir)
+	{
+		Steering.HandleAngle += Dir;
+		Steering.HandleAngle = FMath::Clamp(Steering.HandleAngle, -Steering.Max_Angle, Steering.Max_Angle);
+
+		Steering.bPressedHandle = true; 
+	}
+	else
+	{
+		Steering.bPressedHandle = false; 
+	}
+}
+
+void UChassisComponent::RevertHandle()
+{
+	if (!Steering.bPressedHandle && Steering.HandleAngle)
+	{
+		Steering.HandleAngle += 1.0f * (Steering.HandleAngle > 0 ? -1 : 1); 
+	}
+}
+
 float UChassisComponent::CalculateVelocity()
 {
 	float tireCircumference = PI * 0.4572f;
@@ -44,10 +76,7 @@ float UChassisComponent::CalculateVelocity()
 	return tireCircumference * FinalRPM * 1.67f; 
 }
 
-void UChassisComponent::Deceleration()
+FVector UChassisComponent::CalculateForwardDirection(const FVector& CurForward)
 {
-	if (!Engine.bPressedAccelerator && Engine.RPM)
-	{
-		Engine.RPM += 10.0f * (Engine.RPM > 0 ? -1 : 1); 
-	}
+	return 0; 
 }

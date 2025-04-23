@@ -21,9 +21,11 @@ public:
 private:
 	void OnPressAccelerator(const FInputActionValue& Value); 
 	void OnReleaseAccelerator(const FInputActionValue& Value); 
+	void OnPressHandle(const FInputActionValue& Value); 
+	void OnReleaseHandle(const FInputActionValue& Value); 
 	
 	UPROPERTY()
-	class UChassisComponent* PowerPlantComp;
+	class UChassisComponent* ChassisComp;
 	
 	UPROPERTY(EditAnywhere, Category = Input)
 	class UInputMappingContext* IMC_Player;

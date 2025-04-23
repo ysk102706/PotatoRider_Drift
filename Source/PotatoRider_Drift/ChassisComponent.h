@@ -29,6 +29,18 @@ public:
 	float GearRatioOfFinalReductionGear = 3.357f; 
 };
 
+USTRUCT(BlueprintType)
+struct FSteeringDevice
+{
+	GENERATED_BODY()
+
+public: 
+	float HandleAngle;
+	float Max_Angle = 25; 
+
+	bool bPressedHandle; 
+};
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class POTATORIDER_DRIFT_API UChassisComponent : public UActorComponent
 {
@@ -40,11 +52,17 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	void Accelerator(float Difference);
+	void Deceleration();
+	
+	void RotateHandle(float Dir);
+	void RevertHandle(); 
+
 	float CalculateVelocity();
-	void Deceleration(); 
+	FVector CalculateForwardDirection(const FVector& CurForward); 
 	
 private:
 	FEngineDevice Engine; 
 	FPowerTrainDevice PowerTrain;
+	FSteeringDevice Steering; 
 	
 };

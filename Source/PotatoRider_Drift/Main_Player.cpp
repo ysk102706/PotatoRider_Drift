@@ -12,7 +12,7 @@ AMain_Player::AMain_Player()
 {
  	PrimaryActorTick.bCanEverTick = true;
 
-	PowerPlantComp = CreateDefaultSubobject<UChassisComponent>(TEXT("PowerPlantComp"));
+	ChassisComp = CreateDefaultSubobject<UChassisComponent>(TEXT("PowerPlantComp"));
 }
 
 void AMain_Player::BeginPlay()
@@ -30,7 +30,7 @@ void AMain_Player::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	float Velocity = PowerPlantComp->CalculateVelocity();  
+	float Velocity = ChassisComp->CalculateVelocity();  
 	
 	SetActorLocation(GetActorLocation() + GetActorForwardVector() * Velocity * DeltaTime, true); 
 }
@@ -48,12 +48,22 @@ void AMain_Player::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 void AMain_Player::OnPressAccelerator(const FInputActionValue& Value)
 {
-	FVector2D v = Value.Get<FVector2D>(); 
-	PowerPlantComp->Accelerator(v.X * 10); 
+	float v = Value.Get<float>(); 
+	ChassisComp->Accelerator(v * 10); 
 }
 
 void AMain_Player::OnReleaseAccelerator(const FInputActionValue& Value)
 {
-	PowerPlantComp->Accelerator(0); 
+	ChassisComp->Accelerator(0); 
 }
 
+void AMain_Player::OnPressHandle(const FInputActionValue& Value)
+{
+	float v = Value.Get<float>(); 
+	ChassisComp->Accelerator(v); 
+}
+
+void AMain_Player::OnReleaseHandle(const FInputActionValue& Value)
+{
+	ChassisComp->Accelerator(0); 
+}
