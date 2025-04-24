@@ -30,9 +30,13 @@ void AMain_Player::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	float Velocity = ChassisComp->CalculateVelocity();  
-	
-	SetActorLocation(GetActorLocation() + GetActorForwardVector() * Velocity * DeltaTime, true); 
+	float Velocity = ChassisComp->CalculateVelocity();
+	FVector Forward = ChassisComp->CalculateForwardDirection(GetActorForwardVector()); 
+
+	SetActorLocation(GetActorLocation() + Forward * Velocity * DeltaTime, true); 
+	SetActorRotation(Forward.Rotation()); 
+
+	GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Velocity * 0.036f));
 }
 
 void AMain_Player::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -43,6 +47,9 @@ void AMain_Player::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	{
 		IMC->BindAction(IA[int(EInputAction::Accelerator)], ETriggerEvent::Triggered, this, &AMain_Player::OnPressAccelerator); 
 		IMC->BindAction(IA[int(EInputAction::Accelerator)], ETriggerEvent::Completed, this, &AMain_Player::OnReleaseAccelerator); 
+
+		IMC->BindAction(IA[int(EInputAction::Handle)], ETriggerEvent::Triggered, this, &AMain_Player::OnPressHandle); 
+		IMC->BindAction(IA[int(EInputAction::Handle)], ETriggerEvent::Completed, this, &AMain_Player::OnReleaseHandle); 
 	}
 }
 
@@ -60,10 +67,10 @@ void AMain_Player::OnReleaseAccelerator(const FInputActionValue& Value)
 void AMain_Player::OnPressHandle(const FInputActionValue& Value)
 {
 	float v = Value.Get<float>(); 
-	ChassisComp->Accelerator(v); 
+	ChassisComp->RotateHandle(v); 
 }
 
 void AMain_Player::OnReleaseHandle(const FInputActionValue& Value)
 {
-	ChassisComp->Accelerator(0); 
+	ChassisComp->RotateHandle(0); 
 }
