@@ -6,12 +6,29 @@
 #include "EnhancedInputComponent.h" 
 #include "EnhancedInputSubsystems.h" 
 #include "ChassisComponent.h"
-#include "Utility.h"
+#include "Utility.h" 
+#include "Camera/CameraComponent.h"
+#include "Components/BoxComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 
 AMain_Player::AMain_Player()
 {
  	PrimaryActorTick.bCanEverTick = true;
 
+	BoxComp = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComp"));
+	SetRootComponent(BoxComp);
+	BoxComp->SetBoxExtent(FVector(50.0f));
+	BoxComp->SetRelativeScale3D(FVector(2.0f, 1.0f, 1.0f)); 
+	
+	SpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
+	SpringArmComp->SetupAttachment(RootComponent); 
+	SpringArmComp->TargetArmLength = 500.0f;
+	SpringArmComp->TargetOffset = FVector(0, 0, 200.0f); 
+	
+	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComp"));
+	CameraComp->SetupAttachment(SpringArmComp);
+	CameraComp->SetRelativeRotation(FRotator(-25.0f, 0.0f, 0.0f));
+	
 	ChassisComp = CreateDefaultSubobject<UChassisComponent>(TEXT("PowerPlantComp"));
 }
 
@@ -31,10 +48,21 @@ void AMain_Player::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	float Velocity = ChassisComp->CalculateVelocity();
-	FVector Forward = ChassisComp->CalculateForwardDirection(GetActorForwardVector()); 
+	FQuat q = ChassisComp->CalculateQuat(); 
+	FVector Forward = GetActorForwardVector(); 
+	FVector RotatedForward = q.RotateVector(Forward); 
+	
+	SetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime, true); 
+	SetActorRotation(RotatedForward.Rotation());
 
-	SetActorLocation(GetActorLocation() + Forward * Velocity * DeltaTime, true); 
-	SetActorRotation(Forward.Rotation()); 
+	//float Angle = 0.0f;
+	//FVector Axis = FVector(0);
+	//q.ToAxisAndAngle(Axis, Angle);
+	
+	FRotator rot = q.UnrotateVector(FVector(1.0f, 0.0f, 0.0f)).Rotation();
+	rot.Yaw /= DeltaTime * 2.0f; 
+	SpringArmComp->SetRelativeRotation(rot); 
+	CameraComp->SetRelativeRotation(FRotator(-25.0f, -rot.Yaw * 0.03125f, 0.0f));
 
 	GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Velocity * 0.036f));
 }
@@ -48,29 +76,103 @@ void AMain_Player::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		IMC->BindAction(IA[int(EInputAction::Accelerator)], ETriggerEvent::Triggered, this, &AMain_Player::OnPressAccelerator); 
 		IMC->BindAction(IA[int(EInputAction::Accelerator)], ETriggerEvent::Completed, this, &AMain_Player::OnReleaseAccelerator); 
 
-		IMC->BindAction(IA[int(EInputAction::Handle)], ETriggerEvent::Triggered, this, &AMain_Player::OnPressHandle); 
-		IMC->BindAction(IA[int(EInputAction::Handle)], ETriggerEvent::Completed, this, &AMain_Player::OnReleaseHandle); 
+		IMC->BindAction(IA[int(EInputAction::Decelerator)], ETriggerEvent::Triggered, this, &AMain_Player::OnPressDecelerator); 
+		IMC->BindAction(IA[int(EInputAction::Decelerator)], ETriggerEvent::Completed, this, &AMain_Player::OnReleaseDecelerator); 
+
+		IMC->BindAction(IA[int(EInputAction::LeftHandle)], ETriggerEvent::Triggered, this, &AMain_Player::OnPressLeftHandle); 
+		IMC->BindAction(IA[int(EInputAction::LeftHandle)], ETriggerEvent::Completed, this, &AMain_Player::OnReleaseLeftHandle); 
+
+		IMC->BindAction(IA[int(EInputAction::RightHandle)], ETriggerEvent::Triggered, this, &AMain_Player::OnPressRightHandle); 
+		IMC->BindAction(IA[int(EInputAction::RightHandle)], ETriggerEvent::Completed, this, &AMain_Player::OnReleaseRightHandle); 
 	}
 }
 
 void AMain_Player::OnPressAccelerator(const FInputActionValue& Value)
 {
 	float v = Value.Get<float>(); 
-	ChassisComp->Accelerator(v * 10); 
+	Accelerator(v); 
 }
 
 void AMain_Player::OnReleaseAccelerator(const FInputActionValue& Value)
-{
-	ChassisComp->Accelerator(0); 
+{ 
+	AccelerationInputStack.Remove(1);
+	if (!AccelerationInputStack.Num())
+	{
+		ChassisComp->Accelerator(0);
+	} 
 }
 
-void AMain_Player::OnPressHandle(const FInputActionValue& Value)
+void AMain_Player::OnPressDecelerator(const FInputActionValue& Value)
 {
 	float v = Value.Get<float>(); 
-	ChassisComp->RotateHandle(v); 
+	Accelerator(v); 
 }
 
-void AMain_Player::OnReleaseHandle(const FInputActionValue& Value)
+void AMain_Player::OnReleaseDecelerator(const FInputActionValue& Value)
 {
-	ChassisComp->RotateHandle(0); 
+	AccelerationInputStack.Remove(-1);
+	if (!AccelerationInputStack.Num())
+	{
+		ChassisComp->Accelerator(0);
+	} 
+}
+
+void AMain_Player::OnPressLeftHandle(const FInputActionValue& Value)
+{
+	float v = Value.Get<float>(); 
+	Handle(v); 
+}
+
+void AMain_Player::OnReleaseLeftHandle(const FInputActionValue& Value)
+{ 
+	HandleInputStack.Remove(-1);
+	if (!HandleInputStack.Num())
+	{
+		ChassisComp->RotateHandle(0);
+	} 
+}
+
+void AMain_Player::OnPressRightHandle(const FInputActionValue& Value)
+{
+	float v = Value.Get<float>(); 
+	Handle(v);
+}
+
+void AMain_Player::OnReleaseRightHandle(const FInputActionValue& Value)
+{
+	HandleInputStack.Remove(1);
+	if (!HandleInputStack.Num())
+	{
+		ChassisComp->RotateHandle(0);
+	} 
+}
+
+void AMain_Player::Accelerator(float Value)
+{
+	int sz = AccelerationInputStack.Num(); 
+	if (!sz || (sz == 1 && AccelerationInputStack[0] != Value))
+	{
+		AccelerationInputStack.Add(Value);
+	} 
+	
+	if (AccelerationInputStack.Top() == Value)
+	{
+		ChassisComp->Accelerator(Value * 10);
+	} 
+}
+
+void AMain_Player::Handle(float Value)
+{
+	int sz = HandleInputStack.Num(); 
+	float Velocity = ChassisComp->CalculateVelocity() * 0.036f;
+	
+	if (!sz || (sz == 1 && HandleInputStack[0] != Value && Velocity < 100.0f))
+	{
+		HandleInputStack.Add(Value);
+	} 
+	
+	if (HandleInputStack.Top() == Value)
+	{
+		ChassisComp->RotateHandle(Value);
+	} 
 }

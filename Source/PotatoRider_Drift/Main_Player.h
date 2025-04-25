@@ -18,18 +18,35 @@ public:
 	virtual void Tick(float DeltaTime) override; 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	class UChassisComponent* ChassisComp;
 private:
 	void OnPressAccelerator(const FInputActionValue& Value); 
-	void OnReleaseAccelerator(const FInputActionValue& Value); 
-	void OnPressHandle(const FInputActionValue& Value); 
-	void OnReleaseHandle(const FInputActionValue& Value); 
+	void OnReleaseAccelerator(const FInputActionValue& Value);
+	void OnPressDecelerator(const FInputActionValue& Value); 
+	void OnReleaseDecelerator(const FInputActionValue& Value); 
+	void OnPressLeftHandle(const FInputActionValue& Value); 
+	void OnReleaseLeftHandle(const FInputActionValue& Value);
+	void OnPressRightHandle(const FInputActionValue& Value); 
+	void OnReleaseRightHandle(const FInputActionValue& Value);
+
+	void Accelerator(float Value);
+	void Handle(float Value); 
+
+	UPROPERTY(EditAnywhere)
+	class UBoxComponent* BoxComp; 
+	UPROPERTY(EditAnywhere)
+	class USpringArmComponent* SpringArmComp;
+	UPROPERTY(EditAnywhere)
+	class UCameraComponent* CameraComp; 
 	
+	UPROPERTY() 
+	class UChassisComponent* ChassisComp; 
 	
 	UPROPERTY(EditAnywhere, Category = Input)
 	class UInputMappingContext* IMC_Player;
 	UPROPERTY(EditAnywhere, Category = Input)
 	TArray<class UInputAction*> IA; 
 
+	TArray<float> AccelerationInputStack; 
+	TArray<float> HandleInputStack; 
+	
 };

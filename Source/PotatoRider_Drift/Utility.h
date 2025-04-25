@@ -10,11 +10,18 @@ UENUM(BlueprintType)
 enum class EInputAction : uint8 
 {
 	Accelerator UMETA(DisplayName = "Accelerator"),
-	Handle UMETA(DisplayName = "Handle") 
+	Decelerator UMETA(DisplayName = "Decelerator"),
+	LeftHandle UMETA(DisplayName = "LeftHandle"), 
+	RightHandle UMETA(DisplayName = "RightHandle") 
 };
 
 class POTATORIDER_DRIFT_API Utility
 {
 public:
 	Utility();
+
+	static bool Between_II(float Value, float Inclusive_Min, float Inclusive_Max); 
+	static bool Between_IE(float Value, float Inclusive_Min, float Exclusive_Max); 
+	static bool Between_EI(float Value, float Exclusive_Min, float Inclusive_Max); 
+	static bool Between_EE(float Value, float Exclusive_Min, float Exclusive_Max); 
 };

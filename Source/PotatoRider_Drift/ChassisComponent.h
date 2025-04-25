@@ -13,9 +13,8 @@ struct FEngineDevice
 
 public: 
 	float RPM; 
-	float Default_Max_RPM = 5000.0f;
-	float Boost_Max_RPM = 7000.0f;
-	float Reverse_Max_RPM = -2000.0f; 
+	float Default_Max_RPM = 5000.0f; 
+	float Reverse_Max_RPM = -3500.0f; 
 	
 	bool bPressedAccelerator; 
 }; 
@@ -40,11 +39,16 @@ public:
 	float Max_Angle = 45.0f;
 	float TireCircumference = PI * 0.71; 
 
+	float Default_Min_Vel = 0.0f; 
+	float Default_Max_Vel = 20.0f; 
+	float Acceleration_Max_Vel = 105.0f;
+	float Deceleration_Max_Vel = -70.0f;
+
 	float RotateDeceleration;
 	float TargetRotateDeceleration;
 
-	float DefaultRotation_Max_Velocity = 30.0f; 
-	float AccelerationRotation_Max_Velocity = 105.0f; 
+	float Correction_Min_Vel; 
+	float Correction_Max_Vel; 
 	
 	bool bPressedHandle; 
 };
@@ -64,11 +68,15 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	float CalculateVelocity();
-	FVector CalculateForwardDirection(const FVector& CurForward); 
+	FQuat CalculateQuat(); 
 	
 private:
 	void Deceleration();
 	void RevertHandle();
+
+	bool CheckSteeringCorrection(float CurVelocity); 
+
+	void SetCurVelocityToEngineRPM(); 
 	
 	FEngineDevice Engine; 
 	FPowerTrainDevice PowerTrain;
