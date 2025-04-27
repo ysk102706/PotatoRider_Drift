@@ -15,14 +15,23 @@ AMain_Player::AMain_Player()
 {
  	PrimaryActorTick.bCanEverTick = true;
 
+	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root")); 
+	SetRootComponent(Root); 
+
 	BoxComp = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComp"));
-	SetRootComponent(BoxComp);
+	BoxComp->SetupAttachment(Root); 
 	BoxComp->SetBoxExtent(FVector(50.0f));
-	BoxComp->SetRelativeScale3D(FVector(2.0f, 1.0f, 1.0f)); 
+	BoxComp->SetRelativeScale3D(FVector(2.0f, 1.5f, 0.75f)); 
+
+	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp")); 
+	MeshComp->SetupAttachment(BoxComp); 
 	
+	AimPoint = CreateDefaultSubobject<USceneComponent>(TEXT("AimPoint")); 
+	AimPoint->SetupAttachment(Root); 
+
 	SpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
-	SpringArmComp->SetupAttachment(RootComponent); 
-	SpringArmComp->TargetArmLength = 500.0f;
+	SpringArmComp->SetupAttachment(AimPoint); 
+	SpringArmComp->TargetArmLength = 700.0f;
 	SpringArmComp->TargetOffset = FVector(0, 0, 200.0f); 
 	
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComp"));
@@ -40,31 +49,39 @@ void AMain_Player::BeginPlay()
 	{
 		auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(pc->GetLocalPlayer());
 		Subsystem->AddMappingContext(IMC_Player, 0); 
-	}
+	} 
+
+	MeshForward = FVector(1.0f, 0.0f, 0.0f); 
 }
 
 void AMain_Player::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
+	Super::Tick(DeltaTime); 
 
 	float Velocity = ChassisComp->CalculateVelocity();
 	FQuat q = ChassisComp->CalculateQuat(); 
 	FVector Forward = GetActorForwardVector(); 
+	
 	FVector RotatedForward = q.RotateVector(Forward); 
-	
 	SetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime, true); 
-	SetActorRotation(RotatedForward.Rotation());
+	SetActorRotation(RotatedForward.Rotation()); 
 
-	//float Angle = 0.0f;
-	//FVector Axis = FVector(0);
-	//q.ToAxisAndAngle(Axis, Angle);
+	MeshRot = (HandleInputStack.Num() ? q.RotateVector(MeshForward).Rotation() : MeshForward.Rotation()); 
+	MeshRot.Yaw /= DeltaTime; 
+	BoxComp->SetRelativeRotation(MeshRot); 
+	//MeshComp->SetRelativeRotation(MeshRot); 
 	
-	FRotator rot = q.UnrotateVector(FVector(1.0f, 0.0f, 0.0f)).Rotation();
-	rot.Yaw /= DeltaTime * 2.0f; 
-	SpringArmComp->SetRelativeRotation(rot); 
-	CameraComp->SetRelativeRotation(FRotator(-25.0f, -rot.Yaw * 0.03125f, 0.0f));
+	if (!HandleInputStack.Num())
+	{ 
+		FVector CameraForward = FMath::Lerp(AimPoint->GetRelativeLocation().GetSafeNormal(), FVector(1.0f, 0.0f, 0.0f), 0.05f);
+		FRotator rot = CameraForward.Rotation(); 
+		//rot.Yaw *= ChassisComp->GetHandleHoldTime() / DeltaTime; 
+		AimPoint->SetRelativeLocation((rot).Vector() * 200.0f); 
+		SpringArmComp->SetRelativeRotation(rot); 
+		//CameraComp->SetRelativeRotation(FRotator(-25.0f, -rot.Yaw * DeltaTime, 0.0f));
+	} 
 
-	GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Velocity * 0.036f));
+	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Velocity * 0.036f));
 }
 
 void AMain_Player::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -84,6 +101,9 @@ void AMain_Player::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 		IMC->BindAction(IA[int(EInputAction::RightHandle)], ETriggerEvent::Triggered, this, &AMain_Player::OnPressRightHandle); 
 		IMC->BindAction(IA[int(EInputAction::RightHandle)], ETriggerEvent::Completed, this, &AMain_Player::OnReleaseRightHandle); 
+		
+		IMC->BindAction(IA[int(EInputAction::Drift)], ETriggerEvent::Started, this, &AMain_Player::OnPressStartDrift); 
+		IMC->BindAction(IA[int(EInputAction::Drift)], ETriggerEvent::Completed, this, &AMain_Player::OnReleaseDrift); 
 	}
 }
 
@@ -128,8 +148,16 @@ void AMain_Player::OnReleaseLeftHandle(const FInputActionValue& Value)
 	HandleInputStack.Remove(-1);
 	if (!HandleInputStack.Num())
 	{
-		ChassisComp->RotateHandle(0);
+		ChassisComp->Handle(0);
 	} 
+
+	SetActorRotation(MeshRot); 
+	MeshForward = FVector(1.0f, 0.0f, 0.0f); 
+	
+	FRotator Rot = MeshRot; 
+	Rot.Yaw *= -1.0f; 
+	AimPoint->SetRelativeLocation(Rot.Vector() * 200.0f);
+	SpringArmComp->SetRelativeRotation(Rot);
 }
 
 void AMain_Player::OnPressRightHandle(const FInputActionValue& Value)
@@ -143,8 +171,18 @@ void AMain_Player::OnReleaseRightHandle(const FInputActionValue& Value)
 	HandleInputStack.Remove(1);
 	if (!HandleInputStack.Num())
 	{
-		ChassisComp->RotateHandle(0);
+		ChassisComp->Handle(0); 
 	} 
+}
+
+void AMain_Player::OnPressStartDrift(const FInputActionValue& Value)
+{ 
+	ChassisComp->DriftDevice(true); 
+}
+
+void AMain_Player::OnReleaseDrift(const FInputActionValue& Value)
+{ 
+	ChassisComp->DriftDevice(false); 
 }
 
 void AMain_Player::Accelerator(float Value)
@@ -157,7 +195,7 @@ void AMain_Player::Accelerator(float Value)
 	
 	if (AccelerationInputStack.Top() == Value)
 	{
-		ChassisComp->Accelerator(Value * 10);
+		ChassisComp->Accelerator(Value * 20);
 	} 
 }
 
@@ -173,6 +211,6 @@ void AMain_Player::Handle(float Value)
 	
 	if (HandleInputStack.Top() == Value)
 	{
-		ChassisComp->RotateHandle(Value);
+		ChassisComp->Handle(Value);
 	} 
 }

@@ -36,21 +36,38 @@ struct FSteeringDevice
 
 public: 
 	float HandleAngle;
-	float Max_Angle = 45.0f;
+	float Max_Angle = 35.0f;
 	float TireCircumference = PI * 0.71; 
+
+	float Correction_Min_Vel; 
+	float Correction_Max_Vel; 
 
 	float Default_Min_Vel = 0.0f; 
 	float Default_Max_Vel = 20.0f; 
 	float Acceleration_Max_Vel = 105.0f;
-	float Deceleration_Max_Vel = -70.0f;
+	float Deceleration_Max_Vel = -70.0f; 
 
 	float RotateDeceleration;
 	float TargetRotateDeceleration;
 
-	float Correction_Min_Vel; 
-	float Correction_Max_Vel; 
+	float HoldTime; 
+	float CameraAngleRate; 
 	
 	bool bPressedHandle; 
+}; 
+
+USTRUCT(BlueprintType) 
+struct FDriftDevice
+{
+	GENERATED_BODY() 
+
+public: 
+	float DriftAngle; 
+
+	bool bDrift; 
+	bool bPressedDrift; 
+
+	FTimerHandle DriftTimerHandle; 
 };
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -64,22 +81,27 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	void Accelerator(float Difference);
-	void RotateHandle(float Dir);
+	void Handle(float Dir); 
+	void DriftDevice(bool bPressed); 
 
-	UFUNCTION(BlueprintCallable)
 	float CalculateVelocity();
 	FQuat CalculateQuat(); 
+
+	float GetHandleHoldTime(); 
 	
 private:
 	void Deceleration();
-	void RevertHandle();
+	void RevertHandle(); 
+	void RevertDrift(); 
+
+	void SetVelocityToEngineRPM(); 
+	void UpdateCameraAngleRate(); 
 
 	bool CheckSteeringCorrection(float CurVelocity); 
 
-	void SetCurVelocityToEngineRPM(); 
-	
 	FEngineDevice Engine; 
-	FPowerTrainDevice PowerTrain;
+	FPowerTrainDevice PowerTrain; 
 	FSteeringDevice Steering; 
+	FDriftDevice Drift; 
 	
 };

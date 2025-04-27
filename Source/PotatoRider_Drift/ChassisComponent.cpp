@@ -25,6 +25,12 @@ void UChassisComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 
 	Deceleration();
 	RevertHandle(); 
+	RevertDrift(); 
+
+	UpdateCameraAngleRate(); 
+	
+	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Steering.HandleAngle));
+	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Drift.DriftAngle));
 }
 
 void UChassisComponent::Accelerator(float Difference)
@@ -40,7 +46,7 @@ void UChassisComponent::Accelerator(float Difference)
 		float Velocity = CalculateVelocity() * 0.036f; 
 		if (!Steering.bPressedHandle || CheckSteeringCorrection(Velocity) || FMath::Sign(Velocity) != FMath::Sign(Difference))
 		{
-			Engine.RPM += Difference * 0.75f; 
+			Engine.RPM += Difference * 0.5f; 
 			Engine.RPM = FMath::Clamp(Engine.RPM, Engine.Reverse_Max_RPM, Engine.Default_Max_RPM); 
 		} 
 
@@ -48,8 +54,7 @@ void UChassisComponent::Accelerator(float Difference)
 		{
 			if (!CheckSteeringCorrection(Velocity))
 			{
-				SetCurVelocityToEngineRPM(); 
-				Steering.TargetRotateDeceleration = 0.0f; 
+				SetVelocityToEngineRPM(); 
 
 				if (FMath::Sign(Velocity) == FMath::Sign(Difference))
 				{
@@ -62,21 +67,31 @@ void UChassisComponent::Accelerator(float Difference)
 	}
 	else
 	{
-		Engine.bPressedAccelerator = false;
+		Engine.bPressedAccelerator = false; 
+
+		SetVelocityToEngineRPM(); 
 
 		Steering.Correction_Min_Vel = Steering.Default_Min_Vel; 
 		Steering.Correction_Max_Vel = Steering.Default_Max_Vel; 
-	}
+	} 
 } 
 
-void UChassisComponent::RotateHandle(float Dir)
-{
+void UChassisComponent::Handle(float Dir)
+{ 
+	float Velocity = CalculateVelocity() * 0.036f; 
 	if (Dir)
-	{
-		Steering.HandleAngle += Dir * 0.65f;
-		Steering.HandleAngle = FMath::Clamp(Steering.HandleAngle, -Steering.Max_Angle, Steering.Max_Angle);
+	{ 
+		if (Drift.bPressedDrift && !Drift.bDrift)
+		{
+			Drift.bDrift = true; 
+			GetWorld()->GetTimerManager().SetTimer(Drift.DriftTimerHandle, FTimerDelegate::CreateLambda([&]()
+			{
+				Drift.bDrift = false; 
+				
+				GetWorld()->GetTimerManager().ClearTimer(Drift.DriftTimerHandle); 
+			}), 1.0f + Velocity / 200.0f, false); 
+		} 
 		
-		float Velocity = CalculateVelocity() * 0.036f;
 		if (Engine.bPressedAccelerator)
 		{
 			if (!Steering.bPressedHandle && !CheckSteeringCorrection(Velocity))
@@ -86,14 +101,29 @@ void UChassisComponent::RotateHandle(float Dir)
 
 			if (Steering.TargetRotateDeceleration)
 			{
-				Steering.RotateDeceleration += 30.0f * Steering.TargetRotateDeceleration > 0 ? 1.0f : -1.0f;
+				Steering.RotateDeceleration += 13.89f * (Steering.TargetRotateDeceleration > 0 ? 1.0f : -1.0f);
 				Steering.RotateDeceleration = Steering.TargetRotateDeceleration > 0 ?
 					FMath::Clamp(Steering.RotateDeceleration, 0, Steering.TargetRotateDeceleration) : 
 					FMath::Clamp(Steering.RotateDeceleration, Steering.TargetRotateDeceleration, 0);
 			} 
 		} 
+
+		if (FMath::Abs(Velocity) > 3.0f)
+		{ 
+			Steering.HandleAngle += Dir * (Drift.bDrift ? 3.0f : 1.0f);
+			Steering.bPressedHandle = true;
+		} 
+
+		float MaxAngle = Steering.Max_Angle * Steering.CameraAngleRate; 
+		if (Drift.bDrift) 
+		{ 
+			Drift.DriftAngle = 100.0f - MaxAngle; 
+		} 
 		
-		Steering.bPressedHandle = true; 
+		MaxAngle += Drift.DriftAngle; 
+		Steering.HandleAngle = FMath::Clamp(Steering.HandleAngle, -MaxAngle, MaxAngle);
+
+		Steering.HoldTime = FMath::Lerp(Steering.HoldTime, 0.5f, 0.02f); 
 	} 
 	else
 	{
@@ -101,10 +131,25 @@ void UChassisComponent::RotateHandle(float Dir)
 
 		if (Steering.RotateDeceleration)
 		{
-			SetCurVelocityToEngineRPM(); 
+			SetVelocityToEngineRPM(); 
 		} 
 	}
 }
+
+void UChassisComponent::DriftDevice(bool bPressed)
+{ 
+	Drift.bPressedDrift = bPressed; 
+
+	if (!bPressed) 
+	{ 
+		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, TEXT("Release")); 
+		if (Drift.bDrift)
+		{ 
+			Drift.bDrift = false; 
+			GetWorld()->GetTimerManager().ClearTimer(Drift.DriftTimerHandle); 
+		}
+	}
+} 
 
 float UChassisComponent::CalculateVelocity()
 { 
@@ -115,28 +160,25 @@ float UChassisComponent::CalculateVelocity()
 FQuat UChassisComponent::CalculateQuat()
 {
 	float Angle = 0.0f; 
-	float Velocity = CalculateVelocity() * 0.036f; 
+	float Velocity = CalculateVelocity() * 0.036f;
 	
-	if (FMath::Abs(Velocity) > 3.0f) 
-	{
-		Angle = FMath::DegreesToRadians(Steering.HandleAngle * GetWorld()->GetDeltaSeconds() * (Velocity >= 0 ? 1 : -1)); 
-	}
-
+	Angle = FMath::DegreesToRadians(Steering.HandleAngle * GetWorld()->GetDeltaSeconds() * (Velocity >= 0 ? 1 : -1)); 
+	
 	return FQuat(FVector(0, 0, 1), Angle); 
-}
+} 
 
 void UChassisComponent::Deceleration()
 {
 	if (!Engine.bPressedAccelerator && Engine.RPM) 
-	{
+	{ 
 		float Velocity = CalculateVelocity() * 0.036f; 
 		if (Steering.bPressedHandle && Utility::Between_EI(Velocity, 3.0f, Steering.Default_Max_Vel))
 		{
-			Engine.RPM += 2.0f; 
+			Engine.RPM += 0.5f; 
 		}
 		else
 		{
-			Engine.RPM += 2.0f * (Engine.RPM > 0 ? -1 : 1);
+			Engine.RPM += 10.0f * (Engine.RPM > 0 ? -1 : 1);
 		} 
 	}
 }
@@ -147,21 +189,55 @@ void UChassisComponent::RevertHandle()
 	{
 		if (Steering.HandleAngle)
 		{
-			Steering.HandleAngle += 1.0f * (Steering.HandleAngle > 0 ? -1 : 1);
+			Steering.HandleAngle += 1.0f * (Steering.HandleAngle > 0 ? -1 : 1); 
 		} 
+		
+		Steering.HoldTime = FMath::Lerp(Steering.HoldTime, 0.0f, 0.02f); 
 	}
 }
 
-bool UChassisComponent::CheckSteeringCorrection(float CurVelocity)
-{
-	return Utility::Between_EI(CurVelocity, Steering.Correction_Min_Vel, Steering.Correction_Max_Vel); 
+void UChassisComponent::RevertDrift()
+{ 
+	if (!Drift.bDrift)
+	{ 
+		Drift.DriftAngle = FMath::Lerp(Drift.DriftAngle, 0.0f, 0.05f); 
+	}
 }
 
-void UChassisComponent::SetCurVelocityToEngineRPM()
+void UChassisComponent::SetVelocityToEngineRPM()
 {
 	float CurVelocity = CalculateVelocity();
 	CurVelocity = CurVelocity / (Steering.TireCircumference * 1.67f); 
 	Engine.RPM = CurVelocity * PowerTrain.GearRatioOfTransmission * PowerTrain.GearRatioOfFinalReductionGear; 
 	Steering.RotateDeceleration = 0.0f;
 	Steering.TargetRotateDeceleration = 0.0f; 
+} 
+
+void UChassisComponent::UpdateCameraAngleRate()
+{
+	float Velocity = CalculateVelocity() * 0.036f; 
+
+	Steering.CameraAngleRate = 1.5;
+	if (Velocity >= 15.0f) 
+	{
+		Steering.CameraAngleRate = 1.0f - (FMath::Clamp(Velocity, 30.0f, 170.0f) - 30.0f) / 140.0f; 
+	} 
+	else if (Velocity >= 0.0f)
+	{ 
+		Steering.CameraAngleRate = FMath::Clamp(Velocity, 0.0f, 15.0f) / 15.0f; 
+	} 
+	else
+	{
+		Steering.CameraAngleRate = FMath::Clamp(Velocity, -30.0f, 0.0f) / -30.0f * 1.5f; 
+	}
+} 
+
+bool UChassisComponent::CheckSteeringCorrection(float CurVelocity)
+{
+	return Utility::Between_EI(CurVelocity, Steering.Correction_Min_Vel, Steering.Correction_Max_Vel); 
+} 
+
+float UChassisComponent::GetHandleHoldTime()
+{
+	return Steering.HoldTime; 
 }

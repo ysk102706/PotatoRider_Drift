@@ -26,13 +26,21 @@ private:
 	void OnPressLeftHandle(const FInputActionValue& Value); 
 	void OnReleaseLeftHandle(const FInputActionValue& Value);
 	void OnPressRightHandle(const FInputActionValue& Value); 
-	void OnReleaseRightHandle(const FInputActionValue& Value);
+	void OnReleaseRightHandle(const FInputActionValue& Value); 
+	void OnPressStartDrift(const FInputActionValue& Value); 
+	void OnReleaseDrift(const FInputActionValue& Value); 
 
 	void Accelerator(float Value);
 	void Handle(float Value); 
 
+	UPROPERTY(EditAnywhere) 
+	class USceneComponent* Root; 
 	UPROPERTY(EditAnywhere)
 	class UBoxComponent* BoxComp; 
+	UPROPERTY(EditAnywhere) 
+	class UStaticMeshComponent* MeshComp; 
+	UPROPERTY(EditAnywhere) 
+	class USceneComponent* AimPoint; 
 	UPROPERTY(EditAnywhere)
 	class USpringArmComponent* SpringArmComp;
 	UPROPERTY(EditAnywhere)
@@ -49,4 +57,7 @@ private:
 	TArray<float> AccelerationInputStack; 
 	TArray<float> HandleInputStack; 
 	
+	FVector MeshForward; 
+	FRotator MeshRot; 
+
 };

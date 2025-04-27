@@ -9,10 +9,11 @@
 UENUM(BlueprintType)
 enum class EInputAction : uint8 
 {
-	Accelerator UMETA(DisplayName = "Accelerator"),
-	Decelerator UMETA(DisplayName = "Decelerator"),
-	LeftHandle UMETA(DisplayName = "LeftHandle"), 
-	RightHandle UMETA(DisplayName = "RightHandle") 
+	Accelerator	 UMETA(DisplayName = "Accelerator"),
+	Decelerator	 UMETA(DisplayName = "Decelerator"),
+	LeftHandle	 UMETA(DisplayName = "LeftHandle"), 
+	RightHandle	 UMETA(DisplayName = "RightHandle"), 
+	Drift		 UMETA(DisplayName = "Drift")
 };
 
 class POTATORIDER_DRIFT_API Utility
