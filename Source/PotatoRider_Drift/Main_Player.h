@@ -57,7 +57,6 @@ private:
 	TArray<float> AccelerationInputStack; 
 	TArray<float> HandleInputStack; 
 	
-	FVector MeshForward; 
 	FRotator MeshRot; 
 
 };
