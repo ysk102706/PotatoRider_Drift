@@ -157,6 +157,14 @@ void UChassisComponent::DriftDevice(bool bPressed)
 	}
 } 
 
+void UChassisComponent::Boost()
+{ 
+	if (Booster.Count)  
+	{
+		
+	}
+} 
+
 float UChassisComponent::CalculateVelocity()
 { 
 	float FinalRPM = Engine.RPM / (PowerTrain.GearRatioOfTransmission * PowerTrain.GearRatioOfFinalReductionGear);
@@ -216,11 +224,27 @@ void UChassisComponent::RevertDrift()
 { 
 	if (!Drift.bDrift)
 	{ 
-		Drift.DriftAngle = FMath::Lerp(Drift.DriftAngle, 0.0f, 0.01f);
+		Drift.DriftAngle = FMath::Lerp(Drift.DriftAngle, 0.0f, 0.01f); 
+
+		if (Drift.bRemainCentrifugalForce) 
+		{
+			Booster.BoosterGauge += 0.5f;
+			Booster.BoosterGauge = FMath::Min(Booster.BoosterGauge, Booster.Max_BoosterGauge);
+		}
+
 		if (Drift.DriftAngle < 0.1f)
 		{
 			Drift.bRemainCentrifugalForce = false; 
+			if (Booster.BoosterGauge >= Booster.Max_BoosterGauge) {
+				Booster.BoosterGauge = 0.0f; 
+				Booster.Count = FMath::Min(2, Booster.Count + 1);
+			}
 		}
+	} 
+	else 
+	{
+		Booster.BoosterGauge += 0.5f; 
+		Booster.BoosterGauge = FMath::Min(Booster.BoosterGauge, Booster.Max_BoosterGauge); 
 	}
 }
 

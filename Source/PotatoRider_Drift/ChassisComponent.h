@@ -15,6 +15,10 @@ public:
 	float RPM; 
 	float Default_Max_RPM = 5000.0f; 
 	float Reverse_Max_RPM = -3500.0f; 
+	float Booster_Max_RPM = 7000.0f; 
+
+	float Cur_Min_RPM; 
+	float Cur_Max_RPM; 
 	
 	bool bPressedAccelerator; 
 }; 
@@ -63,7 +67,7 @@ struct FDriftDevice
 public: 
 	float DriftAngle; 
 	float LastDriftDir; 
-	float Max_DriftAngle = 50.0f; 
+	float Max_DriftAngle = 60.0f; 
 	
 	bool bDrift; 
 	bool bPressedDrift; 
@@ -71,6 +75,20 @@ public:
 	bool bRemainCentrifugalForce; 
 	
 	FTimerHandle DriftTimerHandle; 
+}; 
+
+USTRUCT(BlueprintType) 
+struct FBoosterDevice
+{
+	GENERATED_BODY() 
+
+public: 
+	float BoosterGauge; 
+	float Max_BoosterGauge = 100.0f; 
+
+	int Count; 
+
+	bool bBoost; 
 };
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -79,13 +97,14 @@ class POTATORIDER_DRIFT_API UChassisComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:	
-	UChassisComponent();
+	UChassisComponent(); 
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	void Accelerator(float Difference);
 	void Handle(float Dir); 
 	void DriftDevice(bool bPressed); 
+	void Boost(); 
 
 	float CalculateVelocity();
 	FQuat CalculateQuat();
@@ -109,6 +128,7 @@ private:
 	FPowerTrainDevice PowerTrain; 
 	FSteeringDevice Steering; 
 	FDriftDevice Drift; 
+	FBoosterDevice Booster; 
 	
 };
 

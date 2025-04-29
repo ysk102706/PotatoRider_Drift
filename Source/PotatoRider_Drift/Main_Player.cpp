@@ -62,9 +62,10 @@ void AMain_Player::Tick(float DeltaTime)
 	FQuat q = ChassisComp->CalculateQuat(); 
 	FVector Forward = GetActorForwardVector(); 
 	
-	FVector RotatedForward = q.RotateVector(Forward);
-	if (!HandleInputStack.Num() || !ChassisComp->IsDrift())
-	{
+	FVector RotatedForward = q.RotateVector(Forward); 
+	if (!HandleInputStack.Num() || !ChassisComp->IsDrift() || GetActorRightVector() * -HandleInputStack.Top() != LastPositionData.Right)
+	{ 
+		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), RotatedForward.Rotation().Yaw)); 
 		SetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime);
 	}
 	else
@@ -86,7 +87,7 @@ void AMain_Player::Tick(float DeltaTime)
 	
 	if (SpringArmComp->GetRelativeRotation().Yaw != 0.0f)
 	{ 
-		FVector CameraForward = FMath::Lerp(AimPoint->GetRelativeLocation().GetSafeNormal(), FVector(1.0f, 0.0f, 0.0f), 0.01f);
+		FVector CameraForward = FMath::Lerp(AimPoint->GetRelativeLocation().GetSafeNormal(), FVector(1.0f, 0.0f, 0.0f), 0.035f);
 		FRotator rot = CameraForward.Rotation(); 
 		AimPoint->SetRelativeLocation((rot).Vector() * 200.0f); 
 		SpringArmComp->SetRelativeRotation(rot); 
@@ -201,7 +202,7 @@ void AMain_Player::OnReleaseRightHandle(const FInputActionValue& Value)
 		SetActorRotation(Rot); 
 		
 		Rot = MeshRot; 
-		Rot.Yaw *= -1.0f;
+		Rot.Yaw *= -1.0f; 
 		Rot.Yaw += SpringArmComp->GetRelativeRotation().Yaw; 
 		AimPoint->SetRelativeLocation(Rot.Vector() * 200.0f);
 		SpringArmComp->SetRelativeRotation(Rot);

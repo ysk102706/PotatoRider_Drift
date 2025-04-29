@@ -31,9 +31,7 @@ float Utility::CalculateCentrifugalForce(float Velocity, FPositionData Pre, FPos
 {
 	FVector L1 = Cur.Position - Pre.Position;
 	double L2 = Pre.Forward.Dot(L1);
-	// if (L2 < KINDA_SMALL_NUMBER)
-	// 	return 0.f;
-
+	
 	float x = FMath::Acos(Cur.Right.Dot(Pre.Right)); 
 	float L3 = L2 / FMath::Max(FMath::Tan(x), 0.0001f); 
 	float L4 = FMath::Sqrt(L1.Length() * L1.Length() - L2 * L2);
