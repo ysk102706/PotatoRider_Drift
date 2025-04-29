@@ -7,6 +7,17 @@
 #include "InputAction.h"
 #include "Main_Player.generated.h"
 
+USTRUCT(BlueprintType) 
+struct FPositionData 
+{
+	GENERATED_BODY() 
+
+public: 
+	FVector Position;
+	FVector Forward;
+	FVector Right; 
+}; 
+
 UCLASS()
 class POTATORIDER_DRIFT_API AMain_Player : public APawn
 {
@@ -57,6 +68,10 @@ private:
 	TArray<float> AccelerationInputStack; 
 	TArray<float> HandleInputStack; 
 	
-	FRotator MeshRot; 
+	FRotator MeshRot;
+	FPositionData LastPositionData;
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<AActor> TempSkidMark; 
 
 };

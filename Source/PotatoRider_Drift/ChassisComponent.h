@@ -36,21 +36,20 @@ struct FSteeringDevice
 
 public: 
 	float HandleAngle;
-	float Max_Angle = 40.0f;
+	float Max_Angle = 35.0f;
 	float TireCircumference = PI * 0.71; 
 
 	float Correction_Min_Vel; 
 	float Correction_Max_Vel; 
 
 	float Default_Min_Vel = 0.0f; 
-	float Default_Max_Vel = 30.0f; 
+	float Default_Max_Vel = 40.0f; 
 	float Acceleration_Max_Vel = 105.0f;
 	float Deceleration_Max_Vel = -70.0f; 
 
 	float RotateDeceleration;
 	float TargetRotateDeceleration;
-
-	float HoldTime; 
+	
 	float CameraAngleRate; 
 	
 	bool bPressedHandle; 
@@ -63,10 +62,14 @@ struct FDriftDevice
 
 public: 
 	float DriftAngle; 
-
+	float LastDriftDir; 
+	float Max_DriftAngle = 50.0f; 
+	
 	bool bDrift; 
 	bool bPressedDrift; 
-
+	bool bUsedDrift;
+	bool bRemainCentrifugalForce; 
+	
 	FTimerHandle DriftTimerHandle; 
 };
 
@@ -85,11 +88,11 @@ public:
 	void DriftDevice(bool bPressed); 
 
 	float CalculateVelocity();
-	FQuat CalculateQuat(); 
+	FQuat CalculateQuat();
+	bool IsDrift();
+	float GetDriftAngleRate(); 
 
-	float GetHandleHoldTime();
-
-	void ResetHandleForce(); 
+	void ResetHandleForce();
 	
 private:
 	void Deceleration();
@@ -99,7 +102,8 @@ private:
 	void SetVelocityToEngineRPM(); 
 	void UpdateCameraAngleRate(); 
 
-	bool CheckSteeringCorrection(float CurVelocity); 
+	bool CheckSteeringCorrection(float CurVelocity);
+	float GetMaxAngle(); 
 
 	FEngineDevice Engine; 
 	FPowerTrainDevice PowerTrain; 
@@ -107,3 +111,4 @@ private:
 	FDriftDevice Drift; 
 	
 };
+

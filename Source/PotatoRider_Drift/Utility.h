@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Main_Player.h"
 
 #define PI 3.141592
 
@@ -14,7 +15,7 @@ enum class EInputAction : uint8
 	LeftHandle	 UMETA(DisplayName = "LeftHandle"), 
 	RightHandle	 UMETA(DisplayName = "RightHandle"), 
 	Drift		 UMETA(DisplayName = "Drift")
-};
+}; 
 
 class POTATORIDER_DRIFT_API Utility
 {
@@ -24,5 +25,7 @@ public:
 	static bool Between_II(float Value, float Inclusive_Min, float Inclusive_Max); 
 	static bool Between_IE(float Value, float Inclusive_Min, float Exclusive_Max); 
 	static bool Between_EI(float Value, float Exclusive_Min, float Inclusive_Max); 
-	static bool Between_EE(float Value, float Exclusive_Min, float Exclusive_Max); 
+	static bool Between_EE(float Value, float Exclusive_Min, float Exclusive_Max);
+
+	static float CalculateCentrifugalForce(float Velocity, FPositionData Pre, FPositionData Cur); 
 };

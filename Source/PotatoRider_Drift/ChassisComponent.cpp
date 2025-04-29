@@ -4,6 +4,7 @@
 #include "ChassisComponent.h"
 
 #include "Utility.h"
+#include "VT/VirtualTextureScalability.h"
 
 UChassisComponent::UChassisComponent()
 {
@@ -81,12 +82,15 @@ void UChassisComponent::Handle(float Dir)
 	float Velocity = CalculateVelocity() * 0.036f; 
 	if (Dir)
 	{ 	
-		if (Drift.bPressedDrift && !Drift.bDrift)
+		if (Drift.bPressedDrift && !Drift.bDrift && (!Drift.bUsedDrift || Drift.LastDriftDir != Dir))
 		{
-			Drift.bDrift = true; 
+			Drift.bDrift = true;
+			Drift.LastDriftDir = Dir; 
 			GetWorld()->GetTimerManager().SetTimer(Drift.DriftTimerHandle, FTimerDelegate::CreateLambda([&]()
 			{
-				Drift.bDrift = false; 
+				Drift.bDrift = false;
+				Drift.bUsedDrift = true;
+				Drift.bRemainCentrifugalForce = true; 
 				
 				GetWorld()->GetTimerManager().ClearTimer(Drift.DriftTimerHandle); 
 			}), 1.0f + Velocity / 200.0f, false); 
@@ -110,25 +114,25 @@ void UChassisComponent::Handle(float Dir)
 
 		if (FMath::Abs(Velocity) > 3.0f)
 		{ 
-			Steering.HandleAngle += Dir * (Drift.bDrift ? 2.0f : 0.5f);
+			Steering.HandleAngle += Dir * (Drift.bDrift ? 1.5f : 0.5f);
 			Steering.bPressedHandle = true;
 		} 
 
-		float MaxAngle = Steering.Max_Angle * Steering.CameraAngleRate; 
+		float MaxAngle = GetMaxAngle();
 		if (Drift.bDrift) 
 		{ 
-			Drift.DriftAngle = 70.0f - MaxAngle; 
-		} 
+			Drift.DriftAngle = Drift.Max_DriftAngle - MaxAngle; 
+		}  
+		MaxAngle += Drift.DriftAngle;
 		
-		MaxAngle += Drift.DriftAngle; 
-		Steering.HandleAngle = FMath::Clamp(Steering.HandleAngle, -MaxAngle, MaxAngle);
-
-		Steering.HoldTime = FMath::Lerp(Steering.HoldTime, 0.5f, 0.02f); 
+		Steering.HandleAngle = FMath::Clamp(Steering.HandleAngle, -MaxAngle, MaxAngle); 
 	} 
 	else
 	{
 		Steering.bPressedHandle = false;
-
+		Drift.bUsedDrift = false;
+		Drift.LastDriftDir = 0.0f; 
+		
 		if (Steering.RotateDeceleration) 
 		{
 			SetVelocityToEngineRPM(); 
@@ -144,9 +148,12 @@ void UChassisComponent::DriftDevice(bool bPressed)
 	{
 		if (Drift.bDrift)
 		{ 
-			Drift.bDrift = false; 
+			Drift.bDrift = false;
+			Drift.bRemainCentrifugalForce = true; 
 			GetWorld()->GetTimerManager().ClearTimer(Drift.DriftTimerHandle); 
 		}
+
+		Drift.bUsedDrift = false; 
 	}
 } 
 
@@ -164,7 +171,17 @@ FQuat UChassisComponent::CalculateQuat()
 	Angle = FMath::DegreesToRadians(Steering.HandleAngle * GetWorld()->GetDeltaSeconds() * (Velocity >= 0 ? 1.0f : -1.0f)); 
 	
 	return FQuat(FVector(0, 0, 1), Angle); 
-} 
+}
+
+bool UChassisComponent::IsDrift()
+{
+	return Drift.bDrift || Drift.bRemainCentrifugalForce; 
+}
+
+float UChassisComponent::GetDriftAngleRate()
+{
+	return (Steering.HandleAngle - GetMaxAngle()) / 15.0f; 
+}
 
 void UChassisComponent::Deceleration()
 {
@@ -199,7 +216,11 @@ void UChassisComponent::RevertDrift()
 { 
 	if (!Drift.bDrift)
 	{ 
-		Drift.DriftAngle = FMath::Lerp(Drift.DriftAngle, 0.0f, 0.05f); 
+		Drift.DriftAngle = FMath::Lerp(Drift.DriftAngle, 0.0f, 0.01f);
+		if (Drift.DriftAngle < 0.1f)
+		{
+			Drift.bRemainCentrifugalForce = false; 
+		}
 	}
 }
 
@@ -216,15 +237,15 @@ void UChassisComponent::UpdateCameraAngleRate()
 {
 	float Velocity = CalculateVelocity() * 0.036f;
 	
-	if (Velocity >= 30.0f) 
-	{
-		Steering.CameraAngleRate = 1.0f - (FMath::Clamp(Velocity, 30.0f, 240.0f) - 30.0f) / 280.0f; 
+	if (Velocity >= 40.0f) 
+	{ 
+		Steering.CameraAngleRate = 1.0f - (FMath::Clamp(Velocity, 40.0f, 240.0f) - 40.0f) / 280.0f; 
 	} 
 	else if (Velocity >= 0.0f)
 	{ 
-		Steering.CameraAngleRate = FMath::Clamp(Velocity, 0.0f, 30.0f) / 30.0f; 
+		Steering.CameraAngleRate = FMath::Clamp(Velocity, 0.0f, 40.0f) / 40.0f; 
 	} 
-	else
+	else 
 	{
 		Steering.CameraAngleRate = FMath::Clamp(Velocity, -30.0f, 0.0f) / -30.0f; 
 	}
@@ -235,12 +256,14 @@ bool UChassisComponent::CheckSteeringCorrection(float CurVelocity)
 	return Utility::Between_EI(CurVelocity, Steering.Correction_Min_Vel, Steering.Correction_Max_Vel); 
 } 
 
-float UChassisComponent::GetHandleHoldTime()
-{
-	return Steering.HoldTime; 
-}
-
 void UChassisComponent::ResetHandleForce()
 {
 	Steering.HandleAngle = 0.0f; 
+}
+
+float UChassisComponent::GetMaxAngle()
+{
+	float MaxAngle = Steering.Max_Angle * Steering.CameraAngleRate; 
+
+	return MaxAngle; 
 }
