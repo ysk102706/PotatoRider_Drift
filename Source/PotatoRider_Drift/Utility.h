@@ -5,17 +5,22 @@
 #include "CoreMinimal.h"
 #include "Main_Player.h"
 
-#define PI 3.141592
-
 UENUM(BlueprintType)
 enum class EInputAction : uint8 
 {
-	Accelerator	 UMETA(DisplayName = "Accelerator"),
-	Decelerator	 UMETA(DisplayName = "Decelerator"),
-	LeftHandle	 UMETA(DisplayName = "LeftHandle"), 
-	RightHandle	 UMETA(DisplayName = "RightHandle"), 
-	Drift		 UMETA(DisplayName = "Drift")
-}; 
+	Accelerator	UMETA(DisplayName = "Accelerator"),
+	Decelerator	UMETA(DisplayName = "Decelerator"),
+	LeftHandle	UMETA(DisplayName = "LeftHandle"), 
+	RightHandle	UMETA(DisplayName = "RightHandle"), 
+	Drift		UMETA(DisplayName = "Drift"),
+	Booster		UMETA(DisplayName = "Booster")
+};
+
+UENUM(BlueprintType)
+enum class EWidgetType : uint8
+{
+	BoosterUI UMETA(DisplayName = "BoosterUI"), 
+};
 
 class POTATORIDER_DRIFT_API Utility
 {

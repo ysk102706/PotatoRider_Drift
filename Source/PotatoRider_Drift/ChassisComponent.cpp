@@ -1,10 +1,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "ChassisComponent.h"
-
-#include "Utility.h"
-#include "VT/VirtualTextureScalability.h"
+#include "ChassisComponent.h" 
+#include "BoosterUI.h"
+#include "RacingGameMode.h"
+#include "UIManager.h"
+#include "Utility.h" 
+#include "Chaos/Deformable/Utilities.h"
 
 UChassisComponent::UChassisComponent()
 {
@@ -15,9 +17,13 @@ UChassisComponent::UChassisComponent()
 void UChassisComponent::BeginPlay()
 {
 	Super::BeginPlay(); 
-
+	
 	Steering.Correction_Min_Vel = Steering.Default_Min_Vel; 
-	Steering.Correction_Max_Vel = Steering.Default_Max_Vel; 
+	Steering.Correction_Max_Vel = Steering.Default_Max_Vel;
+
+	Booster.Max_Additional_RPM = Booster.Default_Max_Additional_RPM;
+	
+	GameMode = GetWorld()->GetAuthGameMode<ARacingGameMode>(); 
 }
 
 void UChassisComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -26,10 +32,11 @@ void UChassisComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 
 	Deceleration();
 	RevertHandle(); 
-	RevertDrift(); 
+	RevertDrift();
+	Boost(); 
 
 	UpdateCameraAngleRate(); 
-	
+
 	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Steering.HandleAngle));
 	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Drift.DriftAngle));
 }
@@ -37,18 +44,33 @@ void UChassisComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 void UChassisComponent::Accelerator(float Difference)
 {
 	if (Difference)
-	{
+	{ 
 		if (!Engine.bPressedAccelerator)
 		{ 
 			Steering.Correction_Min_Vel = Steering.Deceleration_Max_Vel; 
-			Steering.Correction_Max_Vel = Steering.Acceleration_Max_Vel; 
+			Steering.Correction_Max_Vel = Steering.Acceleration_Max_Vel;
+			
+			if (Booster.bMomentBoostTiming)
+			{
+				Booster.bMomentBoostTiming = false;
+				Booster.bMomentBoost = true; 
+				GetWorld()->GetTimerManager().ClearTimer(Booster.MomentBoosterTimerHandle); 
+				Booster.Max_Additional_RPM = Booster.Moment_Max_Additional_RPM;
+				GetWorld()->GetTimerManager().SetTimer(Booster.MomentBoosterTimerHandle, FTimerDelegate::CreateLambda([&]()
+				{
+					Booster.bMomentBoost = true; 
+					Booster.Max_Additional_RPM = Booster.Default_Max_Additional_RPM;
+					GetWorld()->GetTimerManager().ClearTimer(Booster.MomentBoosterTimerHandle); 
+				}), 0.75f, false); 
+			}
 		} 
 		
 		float Velocity = CalculateVelocity() * 0.036f; 
 		if (!Steering.bPressedHandle || CheckSteeringCorrection(Velocity) || FMath::Sign(Velocity) != FMath::Sign(Difference))
 		{
-			Engine.RPM += Difference * 0.5f; 
-			Engine.RPM = FMath::Clamp(Engine.RPM, Engine.Reverse_Max_RPM, Engine.Default_Max_RPM); 
+			Engine.RPM += Difference * 0.5f;  
+			Engine.RPM = FMath::Clamp(Engine.RPM, Engine.Reverse_Max_RPM, Engine.Default_Max_RPM);
+			Engine.RPM += Booster.Additional_RPM; 
 		} 
 
 		if (Steering.bPressedHandle && !Engine.bPressedAccelerator)
@@ -73,7 +95,11 @@ void UChassisComponent::Accelerator(float Difference)
 		SetVelocityToEngineRPM(); 
 
 		Steering.Correction_Min_Vel = Steering.Default_Min_Vel; 
-		Steering.Correction_Max_Vel = Steering.Default_Max_Vel; 
+		Steering.Correction_Max_Vel = Steering.Default_Max_Vel;
+
+		Booster.bBoost = false; 
+		Booster.Max_Additional_RPM = Booster.Default_Max_Additional_RPM; 
+		GetWorld()->GetTimerManager().ClearTimer(Booster.BoosterTimerHandle); 
 	} 
 } 
 
@@ -81,15 +107,15 @@ void UChassisComponent::Handle(float Dir)
 { 
 	float Velocity = CalculateVelocity() * 0.036f; 
 	if (Dir)
-	{ 	
+	{ 
 		if (Drift.bPressedDrift && !Drift.bDrift && (!Drift.bUsedDrift || Drift.LastDriftDir != Dir))
 		{
 			Drift.bDrift = true;
+			Drift.bUsedDrift = true;
 			Drift.LastDriftDir = Dir; 
 			GetWorld()->GetTimerManager().SetTimer(Drift.DriftTimerHandle, FTimerDelegate::CreateLambda([&]()
 			{
 				Drift.bDrift = false;
-				Drift.bUsedDrift = true;
 				Drift.bRemainCentrifugalForce = true; 
 				
 				GetWorld()->GetTimerManager().ClearTimer(Drift.DriftTimerHandle); 
@@ -114,12 +140,12 @@ void UChassisComponent::Handle(float Dir)
 
 		if (FMath::Abs(Velocity) > 3.0f)
 		{ 
-			Steering.HandleAngle += Dir * (Drift.bDrift ? 1.5f : 0.5f);
+			Steering.HandleAngle += Dir * (Drift.bDrift ? 1.2f : 0.4f); 
 			Steering.bPressedHandle = true;
 		} 
 
 		float MaxAngle = GetMaxAngle();
-		if (Drift.bDrift) 
+		if (IsDrift())  
 		{ 
 			Drift.DriftAngle = Drift.Max_DriftAngle - MaxAngle; 
 		}  
@@ -130,8 +156,7 @@ void UChassisComponent::Handle(float Dir)
 	else
 	{
 		Steering.bPressedHandle = false;
-		Drift.bUsedDrift = false;
-		Drift.LastDriftDir = 0.0f; 
+		Drift.bUsedDrift = false; 
 		
 		if (Steering.RotateDeceleration) 
 		{
@@ -157,12 +182,22 @@ void UChassisComponent::DriftDevice(bool bPressed)
 	}
 } 
 
-void UChassisComponent::Boost()
-{ 
-	if (Booster.Count)  
+void UChassisComponent::BoosterDevice()
+{
+	float Velocity = CalculateVelocity() * 0.036f; 
+	if (Booster.Count && !Booster.bBoost && Velocity > 0.0f)  
 	{
-		
-	}
+		Booster.Count--;
+		Booster.bBoost = true; 
+		Booster.Max_Additional_RPM = Booster.Normal_Max_Additional_RPM; 
+
+		GetWorld()->GetTimerManager().SetTimer(Booster.BoosterTimerHandle, FTimerDelegate::CreateLambda([&]()
+		{ 
+			Booster.bBoost = false; 
+			Booster.Max_Additional_RPM = Booster.Default_Max_Additional_RPM; 
+			GetWorld()->GetTimerManager().ClearTimer(Booster.BoosterTimerHandle); 
+		}), 5.0f, false); 
+	} 
 } 
 
 float UChassisComponent::CalculateVelocity()
@@ -188,7 +223,12 @@ bool UChassisComponent::IsDrift()
 
 float UChassisComponent::GetDriftAngleRate()
 {
-	return (Steering.HandleAngle - GetMaxAngle()) / 15.0f; 
+	return (FMath::Abs(Steering.HandleAngle) - GetMaxAngle()) / 25.0f * 0.25f; 
+}
+
+float UChassisComponent::GetDriftDir()
+{
+	return Drift.LastDriftDir; 
 }
 
 void UChassisComponent::Deceleration()
@@ -209,15 +249,13 @@ void UChassisComponent::Deceleration()
 
 void UChassisComponent::RevertHandle()
 {
-	// if (!Steering.bPressedHandle)
-	// {
-	// 	if (Steering.HandleAngle)
-	// 	{
-	// 		Steering.HandleAngle += 1.0f * (Steering.HandleAngle > 0 ? -1 : 1); 
-	// 	} 
-	// 	
-	// 	Steering.HoldTime = FMath::Lerp(Steering.HoldTime, 0.0f, 0.02f); 
-	// }
+	if (!Steering.bPressedHandle)
+	{
+		if (Steering.HandleAngle)
+		{
+			Steering.HandleAngle += 0.2f * (Steering.HandleAngle > 0 ? -1 : 1); 
+		}
+	}
 }
 
 void UChassisComponent::RevertDrift()
@@ -232,13 +270,28 @@ void UChassisComponent::RevertDrift()
 			Booster.BoosterGauge = FMath::Min(Booster.BoosterGauge, Booster.Max_BoosterGauge);
 		}
 
-		if (Drift.DriftAngle < 0.1f)
-		{
+		if (FMath::Abs(Steering.HandleAngle) <= Steering.Max_Angle - 3.0f)
+		{ 
 			Drift.bRemainCentrifugalForce = false; 
 			if (Booster.BoosterGauge >= Booster.Max_BoosterGauge) {
 				Booster.BoosterGauge = 0.0f; 
 				Booster.Count = FMath::Min(2, Booster.Count + 1);
 			}
+		} 
+		
+		if (FMath::Abs(Steering.HandleAngle) <= Steering.Max_Angle + 3.0f)
+		{
+			Booster.bMomentBoostTiming = true;
+			GetWorld()->GetTimerManager().SetTimer(Booster.MomentBoosterTimerHandle, FTimerDelegate::CreateLambda([&]()
+			{
+				Booster.bMomentBoostTiming = false; 
+				GetWorld()->GetTimerManager().ClearTimer(Booster.MomentBoosterTimerHandle); 
+			}), 1.0f, false); 
+		}
+		else
+		{
+			Booster.bMomentBoostTiming = false; 
+			GetWorld()->GetTimerManager().ClearTimer(Booster.MomentBoosterTimerHandle); 
 		}
 	} 
 	else 
@@ -246,6 +299,20 @@ void UChassisComponent::RevertDrift()
 		Booster.BoosterGauge += 0.5f; 
 		Booster.BoosterGauge = FMath::Min(Booster.BoosterGauge, Booster.Max_BoosterGauge); 
 	}
+
+	auto* BoosterUI = GameMode->UI()->GetWidget<UBoosterUI>(GetWorld(), EWidgetType::BoosterUI);
+	BoosterUI->SetBoosterGauge(Booster.BoosterGauge / Booster.Max_BoosterGauge);           
+}
+
+void UChassisComponent::Boost()
+{
+	float Max_Additional = 0.0f; 
+	if (Booster.bBoost || Booster.bMomentBoost)
+	{ 
+		Max_Additional = Booster.Max_Additional_RPM - Engine.RPM;
+	} 
+
+	Booster.Additional_RPM = FMath::Lerp(Booster.Additional_RPM, Max_Additional, Booster.bMomentBoost ? 0.04f :0.025f);
 }
 
 void UChassisComponent::SetVelocityToEngineRPM()
@@ -286,8 +353,6 @@ void UChassisComponent::ResetHandleForce()
 }
 
 float UChassisComponent::GetMaxAngle()
-{
-	float MaxAngle = Steering.Max_Angle * Steering.CameraAngleRate; 
-
-	return MaxAngle; 
+{ 
+	return Steering.Max_Angle * Steering.CameraAngleRate; 
 }

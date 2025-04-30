@@ -5,6 +5,8 @@
 #include "EnhancedInputComponent.h" 
 #include "EnhancedInputSubsystems.h" 
 #include "ChassisComponent.h"
+#include "RacingGameMode.h"
+#include "UIManager.h"
 #include "Utility.h" 
 #include "Camera/CameraComponent.h"
 #include "Components/BoxComponent.h"
@@ -51,7 +53,13 @@ void AMain_Player::BeginPlay()
 		Subsystem->AddMappingContext(IMC_Player, 0); 
 	}
 
-	LastPositionData = { GetActorLocation(), GetActorForwardVector(), GetActorRightVector()}; 
+	LastPositionData = { GetActorLocation(), GetActorForwardVector(), GetActorRightVector()};
+
+	GameMode = GetWorld()->GetAuthGameMode<ARacingGameMode>(); 
+	if (GameMode)
+	{ 
+		GameMode->UI()->ShowWidget(GetWorld(), EWidgetType::BoosterUI); 
+	} 
 }
 
 void AMain_Player::Tick(float DeltaTime)
@@ -60,44 +68,42 @@ void AMain_Player::Tick(float DeltaTime)
 
 	float Velocity = ChassisComp->CalculateVelocity();
 	FQuat q = ChassisComp->CalculateQuat(); 
-	FVector Forward = GetActorForwardVector(); 
+	FVector Forward = GetActorForwardVector();
+
+	if (!HandleInputStack.Num() && FMath::RadiansToDegrees(q.GetAngle()) < 0.001f)
+	{
+		SetCameraAndMeshRotation(); 
+	}
 	
 	FVector RotatedForward = q.RotateVector(Forward); 
-	if (!HandleInputStack.Num() || !ChassisComp->IsDrift() || GetActorRightVector() * -HandleInputStack.Top() != LastPositionData.Right)
-	{ 
-		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), RotatedForward.Rotation().Yaw)); 
-		SetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime);
-	}
-	else
-	{ 
-		FVector CentrifugalForceDir = GetActorRightVector() * -HandleInputStack.Top(); 
+	FVector CentrifugalForceDir(0); 
+	if (ChassisComp->IsDrift() && LastPositionData.Right.Dot(GetActorRightVector() * -ChassisComp->GetDriftDir()) > 0.0f)
+	{
+		CentrifugalForceDir = GetActorRightVector() * -ChassisComp->GetDriftDir(); 
 		FPositionData CurPositionData({GetActorLocation(), GetActorForwardVector(), CentrifugalForceDir}); 
 		float CentrifugalForce = Utility::CalculateCentrifugalForce(Velocity, LastPositionData, CurPositionData);
 		CentrifugalForceDir *= CentrifugalForce * DeltaTime * ChassisComp->GetDriftAngleRate(); 
-		LastPositionData = CurPositionData;
-		
-		SetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime + CentrifugalForceDir); 
+		LastPositionData = CurPositionData; 
 	}
+	else
+	{
+		LastPositionData = {GetActorLocation(), GetActorForwardVector(), GetActorRightVector() * -ChassisComp->GetDriftDir()}; 
+	}
+	SetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime + CentrifugalForceDir); 
 	SetActorRotation(RotatedForward.Rotation()); 
 
 	FVector MeshForward = FVector(1.0f, 0.0f, 0.0f);
-	MeshRot = (HandleInputStack.Num() ? q.RotateVector(MeshForward).Rotation() : MeshForward.Rotation()); 
+	MeshRot = q.RotateVector(MeshForward).Rotation(); 
 	MeshRot.Yaw /= DeltaTime; 
-	BoxComp->SetRelativeRotation(MeshRot); 
-	
-	if (SpringArmComp->GetRelativeRotation().Yaw != 0.0f)
-	{ 
-		FVector CameraForward = FMath::Lerp(AimPoint->GetRelativeLocation().GetSafeNormal(), FVector(1.0f, 0.0f, 0.0f), 0.035f);
-		FRotator rot = CameraForward.Rotation(); 
-		AimPoint->SetRelativeLocation((rot).Vector() * 200.0f); 
-		SpringArmComp->SetRelativeRotation(rot); 
-	}
+	BoxComp->SetRelativeRotation(MeshRot);
 
 	FVector Start = GetActorLocation();
 	FVector End = GetActorLocation() + BoxComp->GetForwardVector() * 500.0f; 
 	DrawDebugLine(GetWorld(), Start, End, FColor::Red);
 	
 	GetWorld()->SpawnActor<AActor>(TempSkidMark, GetActorTransform());
+
+	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Velocity * 0.036f)); 
 } 
 
 void AMain_Player::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -120,6 +126,8 @@ void AMain_Player::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		
 		IMC->BindAction(IA[int(EInputAction::Drift)], ETriggerEvent::Started, this, &AMain_Player::OnPressStartDrift); 
 		IMC->BindAction(IA[int(EInputAction::Drift)], ETriggerEvent::Completed, this, &AMain_Player::OnReleaseDrift); 
+
+		IMC->BindAction(IA[int(EInputAction::Booster)], ETriggerEvent::Started, this, &AMain_Player::OnActionBooster); 
 	}
 }
 
@@ -127,7 +135,7 @@ void AMain_Player::OnPressAccelerator(const FInputActionValue& Value)
 {
 	float v = Value.Get<float>(); 
 	Accelerator(v); 
-}
+} 
 
 void AMain_Player::OnReleaseAccelerator(const FInputActionValue& Value)
 { 
@@ -165,22 +173,7 @@ void AMain_Player::OnReleaseLeftHandle(const FInputActionValue& Value)
 	if (!HandleInputStack.Num())
 	{
 		ChassisComp->Handle(0); 
-		ChassisComp->ResetHandleForce(); 
-
-		FQuat q = FQuat(FVector(0.0f, 0.0f, 1.0f), FMath::DegreesToRadians(MeshRot.Yaw)); 
-		FRotator Rot = q.RotateVector(GetActorForwardVector()).Rotation(); 
-		SetActorRotation(Rot); 
-		
-		Rot = MeshRot; 
-		Rot.Yaw *= -1.0f;
-		Rot.Yaw += SpringArmComp->GetRelativeRotation().Yaw; 
-		AimPoint->SetRelativeLocation(Rot.Vector() * 200.0f);
-		SpringArmComp->SetRelativeRotation(Rot);
 	} 
-	else
-	{ 
-		LastPositionData = {GetActorLocation(), GetActorForwardVector(), GetActorRightVector()};
-	}
 }
 
 void AMain_Player::OnPressRightHandle(const FInputActionValue& Value)
@@ -195,22 +188,7 @@ void AMain_Player::OnReleaseRightHandle(const FInputActionValue& Value)
 	if (!HandleInputStack.Num())
 	{
 		ChassisComp->Handle(0); 
-		ChassisComp->ResetHandleForce(); 
-
-		FQuat q = FQuat(FVector(0.0f, 0.0f, 1.0f), FMath::DegreesToRadians(MeshRot.Yaw)); 
-		FRotator Rot = q.RotateVector(GetActorForwardVector()).Rotation(); 
-		SetActorRotation(Rot); 
-		
-		Rot = MeshRot; 
-		Rot.Yaw *= -1.0f; 
-		Rot.Yaw += SpringArmComp->GetRelativeRotation().Yaw; 
-		AimPoint->SetRelativeLocation(Rot.Vector() * 200.0f);
-		SpringArmComp->SetRelativeRotation(Rot);
-	}
-	else
-	{ 
-		LastPositionData = {GetActorLocation(), GetActorForwardVector(), GetActorRightVector() * -1};
-	}
+	} 
 }
 
 void AMain_Player::OnPressStartDrift(const FInputActionValue& Value)
@@ -221,6 +199,11 @@ void AMain_Player::OnPressStartDrift(const FInputActionValue& Value)
 void AMain_Player::OnReleaseDrift(const FInputActionValue& Value)
 { 
 	ChassisComp->DriftDevice(false); 
+}
+
+void AMain_Player::OnActionBooster(const FInputActionValue& Value)
+{
+	ChassisComp->BoosterDevice(); 
 }
 
 void AMain_Player::Accelerator(float Value)
@@ -246,17 +229,25 @@ void AMain_Player::Handle(float Value)
 	{
 		if (FMath::Abs(Velocity) < 100.0f)
 		{
-			HandleInputStack.Add(Value);
-			LastPositionData = {GetActorLocation(), GetActorForwardVector(), GetActorRightVector() * Value};
+			HandleInputStack.Add(Value); 
 		}
 		else 
 		{
 			HandleInputStack.Insert(Value, 0); 
 		} 
-	} 
+	}
 	
 	if (HandleInputStack.Top() == Value)
 	{
 		ChassisComp->Handle(Value);
 	} 
+}
+
+void AMain_Player::SetCameraAndMeshRotation()
+{
+	ChassisComp->ResetHandleForce(); 
+		
+	FQuat q = FQuat(FVector(0.0f, 0.0f, 1.0f), FMath::DegreesToRadians(MeshRot.Yaw)); 
+	FRotator Rot = q.RotateVector(GetActorForwardVector()).Rotation(); 
+	SetActorRotation(Rot); 
 }

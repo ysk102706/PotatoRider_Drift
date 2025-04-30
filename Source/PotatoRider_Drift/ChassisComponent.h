@@ -15,10 +15,6 @@ public:
 	float RPM; 
 	float Default_Max_RPM = 5000.0f; 
 	float Reverse_Max_RPM = -3500.0f; 
-	float Booster_Max_RPM = 7000.0f; 
-
-	float Cur_Min_RPM; 
-	float Cur_Max_RPM; 
 	
 	bool bPressedAccelerator; 
 }; 
@@ -41,7 +37,7 @@ struct FSteeringDevice
 public: 
 	float HandleAngle;
 	float Max_Angle = 35.0f;
-	float TireCircumference = PI * 0.71; 
+	float TireCircumference = PI * 0.71f; 
 
 	float Correction_Min_Vel; 
 	float Correction_Max_Vel; 
@@ -85,10 +81,22 @@ struct FBoosterDevice
 public: 
 	float BoosterGauge; 
 	float Max_BoosterGauge = 100.0f; 
+	int Count;
 
-	int Count; 
+	float Additional_RPM;
+	float Max_Additional_RPM; 
 
-	bool bBoost; 
+	float Default_Max_Additional_RPM = 0.0f; 
+	float Normal_Max_Additional_RPM = 8000.0f;
+	float Moment_Max_Additional_RPM = 7000.0f;
+	float Start_Max_Additional_RPM; 
+	
+	bool bBoost;
+	bool bMomentBoostTiming;
+	bool bMomentBoost; 
+
+	FTimerHandle BoosterTimerHandle;
+	FTimerHandle MomentBoosterTimerHandle; 
 };
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -104,19 +112,21 @@ public:
 	void Accelerator(float Difference);
 	void Handle(float Dir); 
 	void DriftDevice(bool bPressed); 
-	void Boost(); 
+	void BoosterDevice(); 
 
 	float CalculateVelocity();
 	FQuat CalculateQuat();
 	bool IsDrift();
-	float GetDriftAngleRate(); 
+	float GetDriftAngleRate();
+	float GetDriftDir(); 
 
 	void ResetHandleForce();
 	
 private:
 	void Deceleration();
 	void RevertHandle(); 
-	void RevertDrift(); 
+	void RevertDrift();
+	void Boost(); 
 
 	void SetVelocityToEngineRPM(); 
 	void UpdateCameraAngleRate(); 
@@ -128,7 +138,10 @@ private:
 	FPowerTrainDevice PowerTrain; 
 	FSteeringDevice Steering; 
 	FDriftDevice Drift; 
-	FBoosterDevice Booster; 
+	FBoosterDevice Booster;
+	
+	UPROPERTY()
+	class ARacingGameMode* GameMode;
 	
 };
 

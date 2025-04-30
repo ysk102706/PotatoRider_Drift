@@ -36,9 +36,5 @@ float Utility::CalculateCentrifugalForce(float Velocity, FPositionData Pre, FPos
 	float L3 = L2 / FMath::Max(FMath::Tan(x), 0.0001f); 
 	float L4 = FMath::Sqrt(L1.Length() * L1.Length() - L2 * L2);
 
-	UE_LOG(LogTemp, Warning, TEXT("%lf, %lf, %lf"), L4, L1.Length(), L2); 
-	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f, %f, %f"), Cur.Right.X, Cur.Right.Y, Cur.Right.Z));
-	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f, %f, %f"), Pre.Right.X, Pre.Right.Y, Pre.Right.Z));
-	
 	return Velocity * Velocity / (L3 + L4); 
 }

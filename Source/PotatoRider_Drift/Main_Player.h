@@ -39,11 +39,16 @@ private:
 	void OnPressRightHandle(const FInputActionValue& Value); 
 	void OnReleaseRightHandle(const FInputActionValue& Value); 
 	void OnPressStartDrift(const FInputActionValue& Value); 
-	void OnReleaseDrift(const FInputActionValue& Value); 
+	void OnReleaseDrift(const FInputActionValue& Value);
+	void OnActionBooster(const FInputActionValue& Value); 
 
 	void Accelerator(float Value);
-	void Handle(float Value); 
+	void Handle(float Value);
+	void SetCameraAndMeshRotation(); 
 
+	UPROPERTY()
+	class ARacingGameMode* GameMode; 
+	
 	UPROPERTY(EditAnywhere) 
 	class USceneComponent* Root; 
 	UPROPERTY(EditAnywhere)
