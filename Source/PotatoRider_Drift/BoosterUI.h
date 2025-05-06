@@ -12,10 +12,16 @@ class POTATORIDER_DRIFT_API UBoosterUI : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	void SetBoosterGauge(float Percent); 
+	void UpdateBoosterGauge(float Percent); 
+	void UpdateBooster(int Count); 
 	
 private: 
 	UPROPERTY(meta=(BindWidget))
-	class UProgressBar* BoosterGauge; 
+	class UProgressBar* PB_BoosterGauge; 
+	UPROPERTY(meta=(BindWidget)) 
+	class UImage* IMG_Slot1; 
+	UPROPERTY(meta=(BindWidget))
+	class UImage* IMG_Slot2; 
+
 	
 };

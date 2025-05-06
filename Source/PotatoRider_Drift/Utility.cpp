@@ -30,11 +30,11 @@ bool Utility::Between_EE(float Value, float Exclusive_Min, float Exclusive_Max)
 float Utility::CalculateCentrifugalForce(float Velocity, FPositionData Pre, FPositionData Cur)
 {
 	FVector L1 = Cur.Position - Pre.Position;
-	double L2 = Pre.Forward.Dot(L1);
+	double L2 = Pre.Forward.Dot(L1); 
 	
 	float x = FMath::Acos(Cur.Right.Dot(Pre.Right)); 
 	float L3 = L2 / FMath::Max(FMath::Tan(x), 0.0001f); 
-	float L4 = FMath::Sqrt(L1.Length() * L1.Length() - L2 * L2);
-
+	float L4 = FMath::Sqrt(L1.Length() * L1.Length() - L2 * L2); 
+	
 	return Velocity * Velocity / (L3 + L4); 
 }

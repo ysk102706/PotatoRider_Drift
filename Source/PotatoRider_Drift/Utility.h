@@ -20,6 +20,9 @@ UENUM(BlueprintType)
 enum class EWidgetType : uint8
 {
 	BoosterUI UMETA(DisplayName = "BoosterUI"), 
+	SpeedometerUI UMETA(DisplayName = "SpeedometerUI"), 
+	CountDownUI UMETA(DisplayName = "CountDownUI"),
+	TimerUI UMETA(DisplayName = "TimerUI"),
 };
 
 class POTATORIDER_DRIFT_API Utility

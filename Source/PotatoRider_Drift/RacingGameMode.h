@@ -13,9 +13,13 @@ class POTATORIDER_DRIFT_API ARacingGameMode : public AGameModeBase
 
 public:
 	ARacingGameMode(); 
-	virtual void BeginPlay() override;
+	virtual void BeginPlay() override; 
+	virtual void Tick(float DeltaSeconds) override;
 	
 	class UUIManager* UI(); 
+
+	float GetTimer(); 
+	void UpdateLapTime(); 
 	
 private: 
 	UPROPERTY(EditAnywhere)
@@ -23,5 +27,15 @@ private:
 
 	UPROPERTY() 
 	class UUIManager* UIManagerObject; 
+
+	float CountDownTimer; 
+	float PlayTimer; 
+
+	int LapCount; 
+	int MaxLapCount = 3; 
+	float LapTimer; 
+	float BestLapTimer; 
+
+	FTimerHandle CountDownTimerHandle; 
 
 };

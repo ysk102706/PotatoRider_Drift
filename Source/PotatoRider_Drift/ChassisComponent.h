@@ -13,7 +13,7 @@ struct FEngineDevice
 
 public: 
 	float RPM; 
-	float Default_Max_RPM = 5000.0f; 
+	float Default_Max_RPM = 4500.0f; 
 	float Reverse_Max_RPM = -3500.0f; 
 	
 	bool bPressedAccelerator; 
@@ -33,10 +33,11 @@ USTRUCT(BlueprintType)
 struct FSteeringDevice
 {
 	GENERATED_BODY()
-
+	
 public: 
 	float HandleAngle;
-	float Max_Angle = 35.0f;
+	float Max_Angle = 35.0f; 
+	float EndDriftAngle = 27.5f; 
 	float TireCircumference = PI * 0.71f; 
 
 	float Correction_Min_Vel; 
@@ -64,11 +65,21 @@ public:
 	float DriftAngle; 
 	float LastDriftDir; 
 	float Max_DriftAngle = 60.0f; 
+	float LastDriftAngle; 
+	float Cur_LastDriftAngle; 
 	
+	float Deceleration_RPM; 
+	
+	float CurDriftTime;  
+
 	bool bDrift; 
 	bool bPressedDrift; 
 	bool bUsedDrift;
 	bool bRemainCentrifugalForce; 
+	bool bBreakDrift; 
+	bool bDoubleDrift; 
+	bool bConnectDrift; 
+	bool bIsConnectDrift; 
 	
 	FTimerHandle DriftTimerHandle; 
 }; 
@@ -87,16 +98,21 @@ public:
 	float Max_Additional_RPM; 
 
 	float Default_Max_Additional_RPM = 0.0f; 
-	float Normal_Max_Additional_RPM = 8000.0f;
-	float Moment_Max_Additional_RPM = 7000.0f;
-	float Start_Max_Additional_RPM; 
+	float Normal_Max_Additional_RPM = 6000.0f; 
+	float Rotated_Normal_Max_Additional_RPM = 1500.0f; 
+	float Moment_Max_Additional_RPM = 1250.0f; 
+	float PerfectStart_Max_Additional_RPM = 3500.0f; 
+	float GoodStart_Max_Additional_RPM = 3000.0f; 
 	
-	bool bBoost;
+	bool bBoost; 
+	bool bRotatedBoost; 
 	bool bMomentBoostTiming;
 	bool bMomentBoost; 
+	bool bStartBoost; 
 
 	FTimerHandle BoosterTimerHandle;
 	FTimerHandle MomentBoosterTimerHandle; 
+	FTimerHandle StartBoosterTimerHandle; 
 };
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -114,13 +130,17 @@ public:
 	void DriftDevice(bool bPressed); 
 	void BoosterDevice(); 
 
-	float CalculateVelocity();
+	float CalculateVelocity(bool bIncludeBooster); 
 	FQuat CalculateQuat();
-	bool IsDrift();
-	float GetDriftAngleRate();
+	bool IsDrift(); 
+	bool IsRemainDrift(); 
+	float GetDriftAngleRate(); 
 	float GetDriftDir(); 
+	bool IsBreakDrift(); 
+	bool IsFullDrift(); 
 
-	void ResetHandleForce();
+	void ResetHandleForce(); 
+	void BreakDrift(); 
 	
 private:
 	void Deceleration();
@@ -128,9 +148,10 @@ private:
 	void RevertDrift();
 	void Boost(); 
 
-	void SetVelocityToEngineRPM(); 
+	void SetVelocityToEngineRPM(bool bIncludeBooster); 
 	void UpdateCameraAngleRate(); 
-
+	void ApplyDriftDeceleration(); 
+	
 	bool CheckSteeringCorrection(float CurVelocity);
 	float GetMaxAngle(); 
 

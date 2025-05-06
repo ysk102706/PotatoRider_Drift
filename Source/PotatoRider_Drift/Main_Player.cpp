@@ -10,11 +10,12 @@
 #include "Utility.h" 
 #include "Camera/CameraComponent.h"
 #include "Components/BoxComponent.h"
-#include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/SpringArmComponent.h" 
+#include "SpeedometerUI.h" 
 
 AMain_Player::AMain_Player()
 {
- 	PrimaryActorTick.bCanEverTick = true;
+ 	PrimaryActorTick.bCanEverTick = true; 
 
 	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root")); 
 	SetRootComponent(Root); 
@@ -38,9 +39,9 @@ AMain_Player::AMain_Player()
 	
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComp"));
 	CameraComp->SetupAttachment(SpringArmComp);
-	CameraComp->SetRelativeRotation(FRotator(-25.0f, 0.0f, 0.0f));
+	CameraComp->SetRelativeRotation(FRotator(-20.0f, 0.0f, 0.0f));
 	
-	ChassisComp = CreateDefaultSubobject<UChassisComponent>(TEXT("PowerPlantComp")); 
+	ChassisComp = CreateDefaultSubobject<UChassisComponent>(TEXT("ChassisComp")); 
 }
 
 void AMain_Player::BeginPlay()
@@ -59,6 +60,7 @@ void AMain_Player::BeginPlay()
 	if (GameMode)
 	{ 
 		GameMode->UI()->ShowWidget(GetWorld(), EWidgetType::BoosterUI); 
+		GameMode->UI()->ShowWidget(GetWorld(), EWidgetType::SpeedometerUI); 
 	} 
 }
 
@@ -66,42 +68,69 @@ void AMain_Player::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime); 
 
-	float Velocity = ChassisComp->CalculateVelocity();
-	FQuat q = ChassisComp->CalculateQuat(); 
-	FVector Forward = GetActorForwardVector();
-
-	if (!HandleInputStack.Num() && FMath::RadiansToDegrees(q.GetAngle()) < 0.001f)
+	if (ChassisComp->IsBreakDrift())
 	{
-		SetCameraAndMeshRotation(); 
-	}
+		SetCameraAndMeshRotation();
+		ChassisComp->BreakDrift();
+	} 
 	
-	FVector RotatedForward = q.RotateVector(Forward); 
+	float Velocity = ChassisComp->CalculateVelocity(true);
+	FQuat Q = ChassisComp->CalculateQuat(); 
+	float CorrectedVelocity = Velocity / (ChassisComp->IsFullDrift() ? 4.0f : 2.0f); 
+	FVector Forward = GetActorForwardVector(); 
+	float Dir = FMath::Sign(Forward.Cross(Q.RotateVector(Forward)).Z); 
+	float QuatCorrectedRate = 1.0f + (FMath::Max(FMath::Abs(CorrectedVelocity), 45.0f) - 45.0f) * 0.5f / 235.0f; 
+	FQuat CorrectedQ = FQuat(FVector(0, 0, 1), Q.GetAngle() * Dir * QuatCorrectedRate);
+
+	if (!HandleInputStack.Num() && FMath::RadiansToDegrees(Q.GetAngle()) < 0.001f && FMath::Abs(SpringArmComp->GetRelativeRotation().Yaw) < 0.001f)
+	{ 
+		SetCameraAndMeshRotation(); 
+	} 
+	
+	FVector RotatedForward = (ChassisComp->IsDrift() && !ChassisComp->IsFullDrift() ? Q : CorrectedQ).RotateVector(Forward);
 	FVector CentrifugalForceDir(0); 
-	if (ChassisComp->IsDrift() && LastPositionData.Right.Dot(GetActorRightVector() * -ChassisComp->GetDriftDir()) > 0.0f)
+	if (Utility::Between_EE(CorrectedVelocity * 0.036f, 20.0f, 350.0f) && ChassisComp->IsDrift() && LastPositionData.Right.Dot(GetActorRightVector() * -ChassisComp->GetDriftDir()) > 0.0f)
 	{
 		CentrifugalForceDir = GetActorRightVector() * -ChassisComp->GetDriftDir(); 
-		FPositionData CurPositionData({GetActorLocation(), GetActorForwardVector(), CentrifugalForceDir}); 
-		float CentrifugalForce = Utility::CalculateCentrifugalForce(Velocity, LastPositionData, CurPositionData);
+		FPositionData CurPositionData = { GetActorLocation(), GetActorForwardVector(), CentrifugalForceDir }; 
+		float CentrifugalForce = Utility::CalculateCentrifugalForce(CorrectedVelocity, LastPositionData, CurPositionData); 
 		CentrifugalForceDir *= CentrifugalForce * DeltaTime * ChassisComp->GetDriftAngleRate(); 
+		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("Pre : %f, %f, %f"), LastPositionData.Position.X, LastPositionData.Position.Y, LastPositionData.Position.Z));
+		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("Cur : %f, %f, %f"), CurPositionData.Position.X, CurPositionData.Position.Y, CurPositionData.Position.Z));
+		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("Force : %f, %f, %f, %f"), CentrifugalForceDir.X, CentrifugalForceDir.Y, CentrifugalForceDir.Z, CentrifugalForce)); 
 		LastPositionData = CurPositionData; 
 	}
 	else
 	{
-		LastPositionData = {GetActorLocation(), GetActorForwardVector(), GetActorRightVector() * -ChassisComp->GetDriftDir()}; 
-	}
-	SetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime + CentrifugalForceDir); 
+		LastPositionData = { GetActorLocation(), GetActorForwardVector(), GetActorRightVector() * -ChassisComp->GetDriftDir() };
+	} 
+	SetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime + CentrifugalForceDir, true); 
+	//SetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime); 
 	SetActorRotation(RotatedForward.Rotation()); 
-
-	FVector MeshForward = FVector(1.0f, 0.0f, 0.0f);
-	MeshRot = q.RotateVector(MeshForward).Rotation(); 
+	
+	DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + RotatedForward * 1000.0f, FColor::Red); 
+	
+	FVector MeshForward = FVector(1.0f, 0.0f, 0.0f); 
+	MeshRot = Q.RotateVector(MeshForward).Rotation(); 
 	MeshRot.Yaw /= DeltaTime; 
 	BoxComp->SetRelativeRotation(MeshRot);
 
+	if (SpringArmComp->GetRelativeRotation().Yaw != 0.0f)
+	{ 
+		FVector CameraForward = FMath::Lerp(AimPoint->GetRelativeLocation().GetSafeNormal(), FVector(1.0f, 0.0f, 0.0f), 0.02f);
+		FRotator rot = CameraForward.Rotation();
+		AimPoint->SetRelativeLocation((rot).Vector() * 200.0f);
+		SpringArmComp->SetRelativeRotation(rot);
+	}
+
 	FVector Start = GetActorLocation();
 	FVector End = GetActorLocation() + BoxComp->GetForwardVector() * 500.0f; 
-	DrawDebugLine(GetWorld(), Start, End, FColor::Red);
+	DrawDebugLine(GetWorld(), Start, End, FColor::Red); 
 	
 	GetWorld()->SpawnActor<AActor>(TempSkidMark, GetActorTransform());
+
+	auto* SpeedometerUI = GameMode->UI()->GetWidget<USpeedometerUI>(GetWorld(), EWidgetType::SpeedometerUI); 
+	SpeedometerUI->UpdateSpeed(Velocity * 0.036f); 
 
 	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Velocity * 0.036f)); 
 } 
@@ -210,7 +239,7 @@ void AMain_Player::Accelerator(float Value)
 {
 	int sz = AccelerationInputStack.Num(); 
 	if (!sz || (sz == 1 && AccelerationInputStack[0] != Value))
-	{
+	{ 
 		AccelerationInputStack.Add(Value);
 	} 
 	
@@ -223,7 +252,7 @@ void AMain_Player::Accelerator(float Value)
 void AMain_Player::Handle(float Value)
 {
 	int sz = HandleInputStack.Num(); 
-	float Velocity = ChassisComp->CalculateVelocity() * 0.036f;
+	float Velocity = ChassisComp->CalculateVelocity(true) * 0.036f;
 
 	if (!sz || (sz == 1 && HandleInputStack[0] != Value))
 	{
@@ -235,7 +264,7 @@ void AMain_Player::Handle(float Value)
 		{
 			HandleInputStack.Insert(Value, 0); 
 		} 
-	}
+	} 
 	
 	if (HandleInputStack.Top() == Value)
 	{
@@ -244,10 +273,16 @@ void AMain_Player::Handle(float Value)
 }
 
 void AMain_Player::SetCameraAndMeshRotation()
-{
+{ 
 	ChassisComp->ResetHandleForce(); 
-		
+	
 	FQuat q = FQuat(FVector(0.0f, 0.0f, 1.0f), FMath::DegreesToRadians(MeshRot.Yaw)); 
 	FRotator Rot = q.RotateVector(GetActorForwardVector()).Rotation(); 
 	SetActorRotation(Rot); 
+
+	Rot = MeshRot;
+	Rot.Yaw *= -1.0f;
+	Rot.Yaw += SpringArmComp->GetRelativeRotation().Yaw;
+	AimPoint->SetRelativeLocation(Rot.Vector() * 200.0f);
+	SpringArmComp->SetRelativeRotation(Rot);
 }
