@@ -19,7 +19,8 @@ public:
 	class UUIManager* UI(); 
 
 	float GetTimer(); 
-	void UpdateLapTime(); 
+	void UpdateLapTime();
+	bool IsRaceEnd(); 
 	
 private: 
 	UPROPERTY(EditAnywhere)
@@ -34,7 +35,9 @@ private:
 	int LapCount; 
 	int MaxLapCount = 3; 
 	float LapTimer; 
-	float BestLapTimer; 
+	float BestLapTimer;
+
+	bool bIsRaceEnd; 
 
 	FTimerHandle CountDownTimerHandle; 
 

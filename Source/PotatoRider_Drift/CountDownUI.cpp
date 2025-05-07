@@ -23,3 +23,8 @@ bool UCountDownUI::UpdateCountDown()
 
 	return true; 
 }
+
+void UCountDownUI::ShowResult(FString Result)
+{
+	TB_Result->SetText(FText::FromString(Result)); 
+}

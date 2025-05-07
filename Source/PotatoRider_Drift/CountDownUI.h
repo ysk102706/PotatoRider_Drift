@@ -13,11 +13,14 @@ class POTATORIDER_DRIFT_API UCountDownUI : public UUserWidget
 	
 public: 
 	virtual void NativeConstruct() override; 
-	bool UpdateCountDown(); 
+	bool UpdateCountDown();
+	void ShowResult(FString Result); 
 	
 private:
 	UPROPERTY(meta = (BindWidget))
-	class UTextBlock* TB_CountDown; 
+	class UTextBlock* TB_CountDown;
+	UPROPERTY(meta = (BindWidget))
+	class UTextBlock* TB_Result;
 
 	int Idx; 
 	UPROPERTY() 

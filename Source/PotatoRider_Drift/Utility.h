@@ -23,6 +23,7 @@ enum class EWidgetType : uint8
 	SpeedometerUI UMETA(DisplayName = "SpeedometerUI"), 
 	CountDownUI UMETA(DisplayName = "CountDownUI"),
 	TimerUI UMETA(DisplayName = "TimerUI"),
+	ResultUI UMETA(DisplayName = "ResultUI"),
 };
 
 class POTATORIDER_DRIFT_API Utility

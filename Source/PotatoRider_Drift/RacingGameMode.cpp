@@ -4,6 +4,7 @@
 #include "RacingGameMode.h" 
 #include "UIManager.h"
 #include "CountDownUI.h"
+#include "ResultUI.h"
 #include "TimerUI.h"
 
 ARacingGameMode::ARacingGameMode()
@@ -34,14 +35,18 @@ void ARacingGameMode::BeginPlay()
 	}), 1.0f, true); 
 
 	UIManagerObject->GetWidget<UTimerUI>(GetWorld(), EWidgetType::TimerUI)->SetMaxLap(MaxLapCount); 
-	LapCount = 0; 
+	LapCount = 1;
+
+	auto* pc = GetWorld()->GetFirstPlayerController();
+	pc->SetShowMouseCursor(false);
+	pc->SetInputMode(FInputModeGameOnly()); 
 } 
 
 void ARacingGameMode::Tick(float DeltaSeconds)
 { 
 	Super::Tick(DeltaSeconds); 
 
-	if (CountDownTimer < 5.1f) 
+	if (CountDownTimer < 5.5f) 
 	{ 
 		CountDownTimer += DeltaSeconds; 
 	} 
@@ -50,7 +55,7 @@ void ARacingGameMode::Tick(float DeltaSeconds)
 		UIManagerObject->HideWidget(GetWorld(), EWidgetType::CountDownUI); 
 	}
 
-	if (CountDownTimer > 4.0f) 
+	if (!bIsRaceEnd && CountDownTimer > 4.0f) 
 	{
 		PlayTimer += DeltaSeconds; 
 		LapTimer += DeltaSeconds; 
@@ -71,13 +76,28 @@ float ARacingGameMode::GetTimer()
 
 void ARacingGameMode::UpdateLapTime()
 { 
-	BestLapTimer = LapCount ? (BestLapTimer == 0.0f ? LapTimer : FMath::Min(BestLapTimer, LapTimer)) : 0.0f; 
-	UIManagerObject->GetWidget<UTimerUI>(GetWorld(), EWidgetType::TimerUI)->UpdateLapTime(++LapCount, BestLapTimer); 
-
-	LapTimer = 0.0f; 
-
 	if (LapCount > MaxLapCount)
 	{ 
+		bIsRaceEnd = true; 
+		UIManagerObject->GetWidget<UResultUI>(GetWorld(), EWidgetType::ResultUI)->UpdateResult(PlayTimer); 
+		UIManagerObject->ShowWidget(GetWorld(), EWidgetType::ResultUI); 
+		UIManagerObject->HideWidget(GetWorld(), EWidgetType::BoosterUI); 
+		UIManagerObject->HideWidget(GetWorld(), EWidgetType::SpeedometerUI); 
+		UIManagerObject->HideWidget(GetWorld(), EWidgetType::TimerUI);
 
+		auto* pc = GetWorld()->GetFirstPlayerController();
+		pc->SetShowMouseCursor(true);
+		pc->SetInputMode(FInputModeUIOnly()); 
+		return; 
 	}
+	
+	BestLapTimer = LapCount > 1 ? (BestLapTimer == 0.0f ? LapTimer : FMath::Min(BestLapTimer, LapTimer)) : 0.0f; 
+	UIManagerObject->GetWidget<UTimerUI>(GetWorld(), EWidgetType::TimerUI)->UpdateLapTime(LapCount++, BestLapTimer); 
+
+	LapTimer = 0.0f; 
+}
+
+bool ARacingGameMode::IsRaceEnd()
+{
+	return bIsRaceEnd; 
 }

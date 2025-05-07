@@ -3,6 +3,7 @@
 
 #include "ChassisComponent.h" 
 #include "BoosterUI.h"
+#include "CountDownUI.h"
 #include "RacingGameMode.h"
 #include "UIManager.h"
 #include "Utility.h" 
@@ -59,21 +60,21 @@ void UChassisComponent::Accelerator(float Difference)
 			Steering.Correction_Min_Vel = Steering.Deceleration_Max_Vel; 
 			Steering.Correction_Max_Vel = Steering.Acceleration_Max_Vel;
 			
-			if (Utility::Between_EE(CountDownTime, 3.3f, 5.0f))
+			if (Utility::Between_EE(CountDownTime, 3.3f, 4.8f))
 			{ 
 				Booster.bStartBoost = true; 
 				if (Utility::Between_EE(CountDownTime, 3.85f, 4.15f))
 				{ 
-					Booster.Max_Additional_RPM = Booster.PerfectStart_Max_Additional_RPM; 
-					GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, TEXT("Perfect")); 
+					Booster.Max_Additional_RPM = Booster.PerfectStart_Max_Additional_RPM;
+					GameMode->UI()->GetWidget<UCountDownUI>(GetWorld(), EWidgetType::CountDownUI)->ShowResult("Perfect"); 
 				} 
 				else
 				{ 
 					Booster.Max_Additional_RPM = Booster.GoodStart_Max_Additional_RPM; 
-					GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, TEXT("Good")); 
+					GameMode->UI()->GetWidget<UCountDownUI>(GetWorld(), EWidgetType::CountDownUI)->ShowResult("Good"); 
 				} 
 
-				GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), CountDownTime)); 
+				//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), CountDownTime)); 
 				GetWorld()->GetTimerManager().ClearTimer(Booster.StartBoosterTimerHandle); 
 				GetWorld()->GetTimerManager().SetTimer(Booster.StartBoosterTimerHandle, FTimerDelegate::CreateLambda([&]()
 				{ 
@@ -83,6 +84,10 @@ void UChassisComponent::Accelerator(float Difference)
 					Booster.Max_Additional_RPM = Booster.Default_Max_Additional_RPM; 
 					GetWorld()->GetTimerManager().ClearTimer(Booster.StartBoosterTimerHandle); 
 				}), 1.5f, false); 
+			}
+			else
+			{
+				GameMode->UI()->GetWidget<UCountDownUI>(GetWorld(), EWidgetType::CountDownUI)->ShowResult("Late"); 
 			}
 
 			if (Booster.bMomentBoostTiming)
@@ -159,7 +164,7 @@ void UChassisComponent::Handle(float Dir)
 			Drift.LastDriftDir = Dir; 
 			Drift.bRemainCentrifugalForce = false; 
 			Drift.LastDriftAngle = 0.0f; 
-			Drift.bDoubleDrift = Steering.HandleAngle > Drift.Max_DriftAngle - 10.0f; 
+			Drift.bDoubleDrift = Steering.HandleAngle > Drift.Max_DriftAngle - 15.0f && FMath::Sign(Steering.HandleAngle) == Dir; 
 
 			if (Drift.bConnectDrift) 
 			{ 
@@ -205,7 +210,7 @@ void UChassisComponent::Handle(float Dir)
 
 		if (FMath::Abs(Velocity) > 3.0f)
 		{ 
-			Steering.HandleAngle += Dir * (Drift.bDrift ? 2.5f : (Drift.bRemainCentrifugalForce ? (Drift.LastDriftDir == Dir ? 0.15f : 0.5f) : 1.0f)); 
+			Steering.HandleAngle += Dir * (Drift.bDrift ? 1.75f : (Drift.bRemainCentrifugalForce ? (Drift.LastDriftDir == Dir ? 0.15f : 0.5f) : 1.0f)); 
 			Steering.bPressedHandle = true;
 		} 
 
@@ -312,7 +317,7 @@ bool UChassisComponent::IsRemainDrift()
 
 float UChassisComponent::GetDriftAngleRate() 
 {
-	return Drift.LastDriftAngle ? (FMath::Max(GetMaxAngle(), Steering.HandleAngle) - GetMaxAngle()) / Drift.LastDriftAngle : 1.0f;
+	return Drift.LastDriftAngle ? FMath::Abs((FMath::Max(GetMaxAngle(), FMath::Abs(Steering.HandleAngle)) - GetMaxAngle()) / Drift.LastDriftAngle) : 1.0f;
 }
 
 float UChassisComponent::GetDriftDir()
@@ -352,7 +357,7 @@ void UChassisComponent::RevertHandle()
 	{
 		if (Steering.HandleAngle) 
 		{ 
-			Steering.HandleAngle = FMath::Lerp(Steering.HandleAngle, 0.0f, Drift.bRemainCentrifugalForce ? 0.005f : 0.05f); 
+			Steering.HandleAngle = FMath::Lerp(Steering.HandleAngle, 0.0f, Drift.bRemainCentrifugalForce ? 0.005f : 0.035f); 
 		} 
 	} 
 	else if (Drift.bRemainCentrifugalForce && Drift.DriftAngle < 5.0f) 
@@ -404,14 +409,20 @@ void UChassisComponent::RevertDrift()
 		if (Drift.bRemainCentrifugalForce) 
 		{ 
 			float DriftAngle = FMath::Clamp(Steering.HandleAngle - 48.0f, -12.0f, 12.0f) * 0.1f; 
-			Booster.BoosterGauge += FMath::Min(1.25f, FMath::Abs(Velocity) / 150.0f) * (Drift.bIsConnectDrift ? 1.5f : 1.0f);
+			Booster.BoosterGauge += FMath::Min(0.8f, FMath::Abs(Velocity) / 500.0f) * (Drift.bIsConnectDrift ? 1.5f : 1.0f);
 			Booster.BoosterGauge = FMath::Min(Booster.BoosterGauge, Booster.Max_BoosterGauge); 
-			Drift.Deceleration_RPM -= (Drift.bDoubleDrift ? 5.0f : 10.0f) * 
+			Drift.Deceleration_RPM -= (Drift.bDoubleDrift ? 2.5f : 10.0f) * 
 				(Engine.RPM + Booster.Additional_RPM + Drift.Deceleration_RPM > 0 ? 1.0f : -1.0f) * 
 				(DriftAngle > 0.0f ? FMath::Max(0.0f, DriftAngle - 0.2f) : FMath::Min(0.0f, DriftAngle + 0.6f));
-			Drift.Deceleration_RPM = FMath::Clamp(Drift.Deceleration_RPM, -60.0f, 60.0f); 
-		} 
-
+			float Max_Deceleration = (Drift.bDoubleDrift ? 0.0f : 60.0f); 
+			Drift.Deceleration_RPM = FMath::Clamp(Drift.Deceleration_RPM, -Max_Deceleration, Max_Deceleration); 
+		}
+		else if (Velocity > 100.0f)
+		{ 
+			Booster.BoosterGauge += 0.05f; 
+			Booster.BoosterGauge = FMath::Min(Booster.BoosterGauge, Booster.Max_BoosterGauge); 
+		}
+		
 		float HandleAngle = FMath::Abs(Steering.HandleAngle); 
 		if (Drift.bRemainCentrifugalForce) 
 		{ 
@@ -419,7 +430,7 @@ void UChassisComponent::RevertDrift()
 			{ 
 				Drift.bRemainCentrifugalForce = false;
 				Drift.LastDriftAngle = 0.0f;
-				Drift.bDoubleDrift = false;
+				Drift.bDoubleDrift = false; 
 				ApplyDriftDeceleration(); 
 
 				Drift.bIsConnectDrift = false; 
@@ -463,11 +474,12 @@ void UChassisComponent::RevertDrift()
 	} 
 	else 
 	{ 
-		Booster.BoosterGauge += FMath::Min(1.25f, FMath::Abs(Velocity) / 150.0f) * (Drift.bIsConnectDrift ? 1.5f : 1.0f); 
+		Booster.BoosterGauge += FMath::Min(0.8f, FMath::Abs(Velocity) / 500.0f) * (Drift.bIsConnectDrift ? 1.5f : 1.0f); 
 		Booster.BoosterGauge = FMath::Min(Booster.BoosterGauge, Booster.Max_BoosterGauge); 
 
-		Drift.Deceleration_RPM -= (Drift.bDoubleDrift ? 5.0f : 10.0f) * (Engine.RPM + Booster.Additional_RPM + Drift.Deceleration_RPM > 0 ? 1.0f : -1.0f); 
-		Drift.Deceleration_RPM = FMath::Clamp(Drift.Deceleration_RPM, -40.0f, 40.0f); 
+		Drift.Deceleration_RPM -= (Drift.bDoubleDrift ? 2.5f : 10.0f) * (Engine.RPM + Booster.Additional_RPM + Drift.Deceleration_RPM > 0 ? 1.0f : -1.0f); 
+		float Max_Deceleration = (Drift.bDoubleDrift ? 0.0f : 800.0f); 
+		Drift.Deceleration_RPM = FMath::Clamp(Drift.Deceleration_RPM, -Max_Deceleration, Max_Deceleration); 
 	} 
 
 	auto* BoosterUI = GameMode->UI()->GetWidget<UBoosterUI>(GetWorld(), EWidgetType::BoosterUI);

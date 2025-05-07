@@ -163,6 +163,5 @@ private:
 	
 	UPROPERTY()
 	class ARacingGameMode* GameMode;
-	
 };
 

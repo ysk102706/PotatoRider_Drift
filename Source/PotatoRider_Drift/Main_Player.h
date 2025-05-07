@@ -75,8 +75,11 @@ private:
 	
 	FRotator MeshRot;
 	FPositionData LastPositionData;
-
+	
 	UPROPERTY(EditAnywhere)
-	TSubclassOf<AActor> TempSkidMark; 
+	TSubclassOf<AActor> TempSkidMark;
+
+
+	void MySetActorLocation(const FVector& NewLocation, bool bSweep);
 
 };
