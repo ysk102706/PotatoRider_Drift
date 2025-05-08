@@ -64,7 +64,11 @@ private:
 	UPROPERTY(EditAnywhere)
 	class UNiagaraComponent* LeftSkidMark;
 	UPROPERTY(EditAnywhere)
-	class UNiagaraComponent* RightSkidMark;
+	class UNiagaraComponent* RightSkidMark; 
+	UPROPERTY(EditAnywhere)
+	class UNiagaraComponent* LeftBooster;
+	UPROPERTY(EditAnywhere)
+	class UNiagaraComponent* RightBooster; 
 	
 	UPROPERTY() 
 	class UChassisComponent* ChassisComp; 

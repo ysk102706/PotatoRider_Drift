@@ -334,6 +334,11 @@ bool UChassisComponent::IsFullDrift()
 	return FMath::Abs(Steering.HandleAngle) >= Drift.Max_DriftAngle - 1.0f; 
 } 
 
+bool UChassisComponent::IsBoost()
+{ 
+	return Booster.bBoost || Booster.bMomentBoost || Booster.bStartBoost;
+} 
+
 void UChassisComponent::Deceleration()
 {
 	if (!Engine.bPressedAccelerator && Engine.RPM) 

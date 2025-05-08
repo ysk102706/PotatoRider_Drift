@@ -138,6 +138,7 @@ public:
 	float GetDriftDir(); 
 	bool IsBreakDrift(); 
 	bool IsFullDrift(); 
+	bool IsBoost(); 
 
 	void ResetHandleForce(); 
 	void BreakDrift(); 

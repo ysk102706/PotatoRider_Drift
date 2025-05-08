@@ -43,6 +43,11 @@ AMain_Player::AMain_Player()
 	RightSkidMark = CreateDefaultSubobject<UNiagaraComponent>(TEXT("RightSkidMark")); 
 	LeftSkidMark->SetupAttachment(MeshComp, TEXT("LB_SkidMark")); 
 	RightSkidMark->SetupAttachment(MeshComp, TEXT("RB_SkidMark")); 
+
+	LeftBooster = CreateDefaultSubobject<UNiagaraComponent>(TEXT("LeftBooster"));
+	RightBooster = CreateDefaultSubobject<UNiagaraComponent>(TEXT("RightBooster"));
+	LeftBooster->SetupAttachment(MeshComp, TEXT("L_Booster"));
+	RightBooster->SetupAttachment(MeshComp, TEXT("R_Booster"));
 	
 	ChassisComp = CreateDefaultSubobject<UChassisComponent>(TEXT("ChassisComp"));
 }
@@ -54,7 +59,7 @@ void AMain_Player::BeginPlay()
 	BoxComp->OnComponentHit.AddDynamic(this, &AMain_Player::OnBoxCompHit); 
 	
 	if (auto* pc = Cast<APlayerController>(Controller))
-	{
+	{ 
 		auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(pc->GetLocalPlayer());
 		Subsystem->AddMappingContext(IMC_Player, 0);
 	}
@@ -105,7 +110,19 @@ void AMain_Player::Tick(float DeltaTime)
 	float MeshAngle = Q.GetAngle() * Dir / DeltaTime; 
 	FQuat MeshQ(FVector(0, 0, 1), MeshAngle); 
 	FRotator MeshRot = MeshQ.RotateVector(Forward).Rotation(); 
-	SetActorRotation(MeshRot);
+	SetActorRotation(MeshRot); 
+
+	if (ChassisComp->IsBoost())
+	{
+		LeftBooster->Activate(); 
+		RightBooster->Activate(); 
+	} 
+	else
+	{
+		LeftBooster->Deactivate();
+		RightBooster->Deactivate(); 
+	}
+	SpringArmComp->TargetArmLength = FMath::Lerp(SpringArmComp->TargetArmLength, ChassisComp->IsBoost() ? 1000.0f : 700.0f, 0.01f); 
 	
 	FRotator Rot = MeshQ.UnrotateVector(FVector(1.0f, 0.0f, 0.0f)).Rotation(); 
 	if (!HandleInputStack.Num() && !ChassisComp->IsRemainDrift())
@@ -128,7 +145,7 @@ void AMain_Player::Tick(float DeltaTime)
 		RightSkidMark->Activate();
 	}
 	else
-	{
+	{ 
 		LeftSkidMark->Deactivate();
 		RightSkidMark->Deactivate(); 
 	}
@@ -330,6 +347,6 @@ void AMain_Player::OnBoxCompHit(UPrimitiveComponent* HitComponent, AActor* Other
 { 
 	float Velocity = ChassisComp->CalculateVelocity(true); 
 	FVector Dir = Utility::CalculateReflectionVector(Forward, NormalImpulse); 
-	InelasticForce = Utility::CalculateInelasticCollision(Dir, Velocity);
+	InelasticForce = Utility::CalculateInelasticCollision(Dir, Velocity) * GetWorld()->GetDeltaSeconds();
 	UE_LOG(LogTemp, Warning, TEXT("%f"), InelasticForce.Length()); 
 }
