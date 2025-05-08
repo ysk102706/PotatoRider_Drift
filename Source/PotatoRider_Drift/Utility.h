@@ -36,5 +36,7 @@ public:
 	static bool Between_EI(float Value, float Exclusive_Min, float Inclusive_Max); 
 	static bool Between_EE(float Value, float Exclusive_Min, float Exclusive_Max);
 
-	static float CalculateCentrifugalForce(float Velocity, FPositionData Pre, FPositionData Cur); 
+	static float CalculateCentrifugalForce(float Velocity, FPositionData Pre, FPositionData Cur);
+	static FVector CalculateInelasticCollision(FVector Dir, float V1, float e = 0.35f);
+	static FVector CalculateReflectionVector(FVector Incident, FVector Normal); 
 };

@@ -74,7 +74,6 @@ void UChassisComponent::Accelerator(float Difference)
 					GameMode->UI()->GetWidget<UCountDownUI>(GetWorld(), EWidgetType::CountDownUI)->ShowResult("Good"); 
 				} 
 
-				//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), CountDownTime)); 
 				GetWorld()->GetTimerManager().ClearTimer(Booster.StartBoosterTimerHandle); 
 				GetWorld()->GetTimerManager().SetTimer(Booster.StartBoosterTimerHandle, FTimerDelegate::CreateLambda([&]()
 				{ 

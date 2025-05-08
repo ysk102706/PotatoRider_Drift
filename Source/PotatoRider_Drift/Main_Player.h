@@ -44,23 +44,27 @@ private:
 
 	void Accelerator(float Value);
 	void Handle(float Value);
-	void SetCameraAndMeshRotation(); 
+
+	UFUNCTION() 
+	void OnBoxCompHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit); 
 
 	UPROPERTY()
 	class ARacingGameMode* GameMode; 
 	
-	UPROPERTY(EditAnywhere) 
-	class USceneComponent* Root; 
 	UPROPERTY(EditAnywhere)
 	class UBoxComponent* BoxComp; 
 	UPROPERTY(EditAnywhere) 
-	class UStaticMeshComponent* MeshComp; 
+	class USkeletalMeshComponent* MeshComp; 
 	UPROPERTY(EditAnywhere) 
 	class USceneComponent* AimPoint; 
 	UPROPERTY(EditAnywhere)
 	class USpringArmComponent* SpringArmComp;
 	UPROPERTY(EditAnywhere)
-	class UCameraComponent* CameraComp; 
+	class UCameraComponent* CameraComp;
+	UPROPERTY(EditAnywhere)
+	class UNiagaraComponent* LeftSkidMark;
+	UPROPERTY(EditAnywhere)
+	class UNiagaraComponent* RightSkidMark;
 	
 	UPROPERTY() 
 	class UChassisComponent* ChassisComp; 
@@ -73,13 +77,12 @@ private:
 	TArray<float> AccelerationInputStack; 
 	TArray<float> HandleInputStack; 
 	
-	FRotator MeshRot;
+	FVector Forward;
+	FVector Right; 
 	FPositionData LastPositionData;
+
+	FVector InelasticForce; 
 	
-	UPROPERTY(EditAnywhere)
-	TSubclassOf<AActor> TempSkidMark;
-
-
 	void MySetActorLocation(const FVector& NewLocation, bool bSweep);
 
 };
