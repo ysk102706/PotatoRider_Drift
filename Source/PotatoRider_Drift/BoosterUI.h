@@ -11,7 +11,7 @@ class POTATORIDER_DRIFT_API UBoosterUI : public UUserWidget
 {
 	GENERATED_BODY()
 
-public:
+public: 
 	void UpdateBoosterGauge(float Percent); 
 	void UpdateBooster(int Count); 
 	

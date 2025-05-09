@@ -2,6 +2,8 @@
 
 
 #include "BoosterUI.h"
+
+#include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Components/ProgressBar.h"
 #include "Components/Image.h"
 

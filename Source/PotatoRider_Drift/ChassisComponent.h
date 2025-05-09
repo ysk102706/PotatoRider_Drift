@@ -64,13 +64,14 @@ struct FDriftDevice
 public: 
 	float DriftAngle; 
 	float LastDriftDir; 
-	float Max_DriftAngle = 60.0f; 
+	float Max_DriftAngle = 90.0f; 
 	float LastDriftAngle; 
-	float Cur_LastDriftAngle; 
+	float Cur_LastDriftAngle;
+	float InertiaAngle; 
 	
 	float Deceleration_RPM; 
 	
-	float CurDriftTime;  
+	float CurDriftTime; 
 
 	bool bDrift; 
 	bool bPressedDrift; 
@@ -82,6 +83,7 @@ public:
 	bool bIsConnectDrift; 
 	
 	FTimerHandle DriftTimerHandle; 
+	FTimerHandle InertiaAngleTimerHandle; 
 }; 
 
 USTRUCT(BlueprintType) 
@@ -100,7 +102,7 @@ public:
 	float Default_Max_Additional_RPM = 0.0f; 
 	float Normal_Max_Additional_RPM = 6000.0f; 
 	float Rotated_Normal_Max_Additional_RPM = 1500.0f; 
-	float Moment_Max_Additional_RPM = 1000.0f; 
+	float Moment_Max_Additional_RPM = 1250.0f; 
 	float PerfectStart_Max_Additional_RPM = 3500.0f; 
 	float GoodStart_Max_Additional_RPM = 3000.0f; 
 	

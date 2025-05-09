@@ -83,8 +83,10 @@ private:
 	
 	FVector Forward;
 	FVector Right; 
-	FPositionData LastPositionData;
-
+	FRotator CameraRot; 
+	FPositionData LastPositionData; 
+	
+	FVector CentrifugalForceDir; 
 	FVector InelasticForce; 
 	
 	void MySetActorLocation(const FVector& NewLocation, bool bSweep);

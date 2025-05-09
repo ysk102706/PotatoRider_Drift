@@ -32,7 +32,7 @@ AMain_Player::AMain_Player()
 
 	SpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArmComp"));
 	SpringArmComp->SetupAttachment(AimPoint);
-	SpringArmComp->TargetArmLength = 700.0f;
+	SpringArmComp->TargetArmLength = 650.0f;
 	SpringArmComp->TargetOffset = FVector(0, 0, 200.0f);
 
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComp"));
@@ -81,15 +81,15 @@ void AMain_Player::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	float Velocity = ChassisComp->CalculateVelocity(true) / (GameMode->IsRaceEnd() ? 2.5f : 1.0f);
-	float CorrectedVelocity = Velocity / (ChassisComp->IsFullDrift() ? 3.5f : 2.0f); 
-
+	float CorrectedVelocity = Velocity / 1.5f; 
+	
 	FQuat Q = ChassisComp->CalculateQuat();
 	float Dir = FMath::Sign(Forward.Cross(Q.RotateVector(Forward)).Z);
 	float QuatCorrectedRate = 1.0f + (FMath::Max(FMath::Abs(CorrectedVelocity), 45.0f) - 45.0f) * 0.5f / 235.0f;
 	FQuat CorrectedQ = FQuat(FVector(0, 0, 1), Q.GetAngle() * Dir * QuatCorrectedRate);
 	
 	FVector RotatedForward = (ChassisComp->IsDrift() && !ChassisComp->IsFullDrift() ? Q : CorrectedQ).RotateVector(Forward);
-	FVector CentrifugalForceDir(0); 
+	CentrifugalForceDir = FMath::Lerp(CentrifugalForceDir, FVector(0), 0.01f); 
 	FPositionData CurPositionData = {GetActorLocation(), Forward, Right * -ChassisComp->GetDriftDir()};
 	if (Utility::Between_EE(CorrectedVelocity * 0.036f, 20.0f, 350.0f) && ChassisComp->IsDrift() && LastPositionData.Right.Dot(Right * -ChassisComp->GetDriftDir()) > 0.0f)
 	{
@@ -99,39 +99,28 @@ void AMain_Player::Tick(float DeltaTime)
 		CentrifugalForceDir *= CentrifugalForce * DeltaTime * ChassisComp->GetDriftAngleRate(); 
 	} 
 	LastPositionData = CurPositionData;
-
-	if (InelasticForce.Length() > 0.0f)
+	
+	if (InelasticForce.Length() > 0.0f) 
 	{
-		InelasticForce = FMath::Lerp(InelasticForce, FVector(0), 0.1f); 
+		InelasticForce = FMath::Lerp(InelasticForce, FVector(0), 0.25f); 
 	} 
 	
 	MySetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime + CentrifugalForceDir.GetClampedToSize2D(-1000, 1000) + InelasticForce, true);
 
 	float MeshAngle = Q.GetAngle() * Dir / DeltaTime; 
-	FQuat MeshQ(FVector(0, 0, 1), MeshAngle); 
+	FQuat MeshQ(FVector(0, 0, 1), MeshAngle);
 	FRotator MeshRot = MeshQ.RotateVector(Forward).Rotation(); 
-	SetActorRotation(MeshRot); 
-
-	if (ChassisComp->IsBoost())
-	{
-		LeftBooster->Activate(); 
-		RightBooster->Activate(); 
-	} 
-	else
-	{
-		LeftBooster->Deactivate();
-		RightBooster->Deactivate(); 
-	}
-	SpringArmComp->TargetArmLength = FMath::Lerp(SpringArmComp->TargetArmLength, ChassisComp->IsBoost() ? 1000.0f : 700.0f, 0.01f); 
+	SetActorRotation(MeshRot);
 	
-	FRotator Rot = MeshQ.UnrotateVector(FVector(1.0f, 0.0f, 0.0f)).Rotation(); 
-	if (!HandleInputStack.Num() && !ChassisComp->IsRemainDrift())
+	CameraRot = MeshQ.UnrotateVector(FVector(1.0f, 0.0f, 0.0f)).Rotation(); 
+	if (!HandleInputStack.Num() || ChassisComp->IsRemainDrift())
 	{
-		FVector CameraForward = FMath::Lerp(AimPoint->GetRelativeLocation().GetSafeNormal(), FVector(1.0f, 0.0f, 0.0f), 0.02f).GetSafeNormal();
-		Rot = CameraForward.Rotation(); 
+		CameraRot = FMath::Lerp(SpringArmComp->GetRelativeRotation(), FRotator(0), 0.005f);
 	} 
-	AimPoint->SetRelativeLocation(Rot.Vector() * 200.0f);
-	SpringArmComp->SetRelativeRotation(Rot); 
+	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), CameraRot.Yaw)); 
+	AimPoint->SetRelativeLocation(CameraRot.Vector() * 200.0f);
+	SpringArmComp->SetRelativeRotation(CameraRot); 
+	SpringArmComp->TargetArmLength = FMath::Lerp(SpringArmComp->TargetArmLength, ChassisComp->IsBoost() ? 1000.0f : 650.0f, 0.025f);
 
 	Forward = RotatedForward;
 	Right = Forward.RightVector; 
@@ -150,6 +139,17 @@ void AMain_Player::Tick(float DeltaTime)
 		RightSkidMark->Deactivate(); 
 	}
 
+	if (ChassisComp->IsBoost())
+	{
+		LeftBooster->Activate(); 
+		RightBooster->Activate(); 
+	} 
+	else
+	{
+		LeftBooster->Deactivate();
+		RightBooster->Deactivate(); 
+	}
+	
 	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Velocity * 0.036f)); 
 }
 
