@@ -88,6 +88,8 @@ private:
 	
 	FVector CentrifugalForceDir; 
 	FVector InelasticForce; 
+
+	float GravityForce = 9.81f; 
 	
 	void MySetActorLocation(const FVector& NewLocation, bool bSweep);
 

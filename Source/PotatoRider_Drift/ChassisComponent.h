@@ -32,12 +32,12 @@ public:
 USTRUCT(BlueprintType)
 struct FSteeringDevice
 {
-	GENERATED_BODY()
+	GENERATED_BODY() 
 	
 public: 
 	float HandleAngle;
 	float Max_Angle = 35.0f; 
-	float EndDriftAngle = 27.5f; 
+	float EndDriftAngle = 25.0f; 
 	float TireCircumference = PI * 0.71f; 
 
 	float Correction_Min_Vel; 
@@ -64,10 +64,11 @@ struct FDriftDevice
 public: 
 	float DriftAngle; 
 	float LastDriftDir; 
-	float Max_DriftAngle = 90.0f; 
+	float Max_DriftAngle = 60.0f; 
 	float LastDriftAngle; 
 	float Cur_LastDriftAngle;
 	float InertiaAngle; 
+	float FullDriftAngleRate; 
 	
 	float Deceleration_RPM; 
 	
@@ -141,6 +142,7 @@ public:
 	bool IsBreakDrift(); 
 	bool IsFullDrift(); 
 	bool IsBoost(); 
+	float GetInertiaAngle(); 
 
 	void ResetHandleForce(); 
 	void BreakDrift(); 
