@@ -122,19 +122,18 @@ void AMain_Player::Tick(float DeltaTime)
 	bool GroundRet = GetWorld()->LineTraceSingleByChannel(GroundHit, Start, End, ECollisionChannel::ECC_Visibility, CQP); 
 	bool GroundCheck = GroundRet && GroundHit.Distance < 0.1f; 
 
-	bool RunwayRet = GetWorld()->LineTraceSingleByChannel(GroundHit, Start, End, ECollisionChannel::ECC_Visibility, CQP); 
-
-	SetActorLocation(GetActorLocation() + (GroundCheck ? FVector(0) : FVector(0, 0, -1) * GravityForce * DeltaTime), true); 
+	Start = GetActorLocation() + Forward * 100.0f; 
+	End = Start + Forward * 5.0f; 
+	bool RunwayRet = GetWorld()->LineTraceSingleByChannel(RunwayHit, Start, End, ECollisionChannel::ECC_Visibility, CQP); 
+	
+	SetActorLocation(GetActorLocation() + (GroundCheck ? FVector(0) : FVector(0, 0, -1) * GravityForce * DeltaTime) + (RunwayRet ? RunwayHit : GroundHit).ImpactNormal * 10.0f, true);
 	
 	float MeshAngle = Q.GetAngle() * Dir / DeltaTime;
 	FQuat MeshQ(FVector(0, 0, 1), MeshAngle);
 	FRotator MeshRot = MeshQ.RotateVector(Forward).Rotation(); 
-	// if (GroundCheck)
-	// {
-	// 	float PitchAngle = FMath::RadiansToDegrees(FMath::Acos(FVector(0, 0, 1).Dot(Hit.ImpactNormal))); 
-	// 	float PitchAngleDir = FMath::Sign(FMath::Acos(Forward.Dot(Hit.ImpactNormal))); 
-	// 	MeshRot.Pitch = PitchAngle * PitchAngleDir;
-	// } 
+	float PitchAngle = FMath::RadiansToDegrees(FMath::Acos(FVector(0, 0, 1).Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal))); 
+	float PitchAngleDir = FMath::Sign(FMath::Acos(Forward.Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal)));
+	MeshRot.Pitch = PitchAngle * PitchAngleDir; 
 	SetActorRotation(MeshRot);
 
 	if (!ChassisComp->IsFullDrift())
