@@ -2,10 +2,10 @@
 
 
 #include "RacingGameMode.h" 
-#include "UIManager.h"
-#include "CountDownUI.h"
-#include "ResultUI.h"
-#include "TimerUI.h"
+#include "../UIManager.h"
+#include "../UI/CountDownUI.h"
+#include "../UI/ResultUI.h"
+#include "../UI/TimerUI.h"
 
 ARacingGameMode::ARacingGameMode()
 { 

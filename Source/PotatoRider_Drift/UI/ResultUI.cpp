@@ -2,7 +2,7 @@
 
 
 #include "ResultUI.h" 
-#include "TimeAttackSaveGame.h"
+#include "../Actor/TimeAttackSaveGame.h"
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"

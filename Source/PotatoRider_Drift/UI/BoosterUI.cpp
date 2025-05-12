@@ -1,9 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "BoosterUI.h"
-
-#include "Blueprint/WidgetBlueprintLibrary.h"
+#include "BoosterUI.h" 
 #include "Components/ProgressBar.h"
 #include "Components/Image.h"
 

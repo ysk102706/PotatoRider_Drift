@@ -5,13 +5,13 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "ChassisComponent.h"
-#include "RacingGameMode.h"
-#include "UIManager.h"
-#include "Utility.h"
+#include "../RacingGameMode.h"
+#include "../../UIManager.h"
+#include "../../Utility.h"
 #include "Camera/CameraComponent.h"
 #include "Components/BoxComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "SpeedometerUI.h"
+#include "../../UI/SpeedometerUI.h"
 #include "NiagaraComponent.h" 
 
 AMain_Player::AMain_Player()
@@ -48,12 +48,17 @@ AMain_Player::AMain_Player()
 	RightBooster = CreateDefaultSubobject<UNiagaraComponent>(TEXT("RightBooster"));
 	LeftBooster->SetupAttachment(MeshComp, TEXT("L_Booster"));
 	RightBooster->SetupAttachment(MeshComp, TEXT("R_Booster"));
+
+	LeftBooster = CreateDefaultSubobject<UNiagaraComponent>(TEXT("LeftRedLight"));
+	RightBooster = CreateDefaultSubobject<UNiagaraComponent>(TEXT("RightRedLight"));
+	LeftBooster->SetupAttachment(MeshComp, TEXT("L_RedLight"));
+	RightBooster->SetupAttachment(MeshComp, TEXT("R_RedLight")); 
 	
 	ChassisComp = CreateDefaultSubobject<UChassisComponent>(TEXT("ChassisComp"));
 }
 
 void AMain_Player::BeginPlay() 
-{
+{ 
 	Super::BeginPlay();
 
 	BoxComp->OnComponentHit.AddDynamic(this, &AMain_Player::OnBoxCompHit); 
@@ -66,7 +71,7 @@ void AMain_Player::BeginPlay()
 
 	Forward = GetActorForwardVector();
 	Right = GetActorRightVector(); 
-	LastPositionData = {GetActorLocation(), Forward, Right};
+	LastPositionData = {GetActorLocation(), Forward, FVector::UpVector};
 
 	GameMode = GetWorld()->GetAuthGameMode<ARacingGameMode>();
 	if (GameMode)
@@ -81,65 +86,78 @@ void AMain_Player::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	float Velocity = ChassisComp->CalculateVelocity(true) / (GameMode->IsRaceEnd() ? 2.5f : 1.0f);
-	float CorrectedVelocity = Velocity / (ChassisComp->IsFullDrift() ? 10.0f : 1.0f);
+	float CorrectedVelocity = Velocity / (HandleInputStack.Num() && ChassisComp->IsFullDrift() ? 1.0f : 1.0f);
 	
 	FQuat Q = ChassisComp->CalculateQuat();
 	float Dir = FMath::Sign(Forward.Cross(Q.RotateVector(Forward)).Z); 
-	float QuatCorrectedRate = 1.0f + (FMath::Max(FMath::Abs(Velocity * 0.036f), 45.0f) - 45.0f) / 235.0f * (HandleInputStack.Num() && ChassisComp->IsFullDrift() ? 5.0f : 1.0f);
+	float QuatCorrectedRate = 1.0f + (FMath::Max(FMath::Abs(Velocity * 0.036f), 45.0f) - 45.0f) / 235.0f * (HandleInputStack.Num() && ChassisComp->IsFullDrift() ? 15.0f : 1.0f);
 	FQuat CorrectedQ = FQuat(FVector(0, 0, 1), Q.GetAngle() * Dir * QuatCorrectedRate);
 	
 	FVector RotatedForward = (ChassisComp->IsDrift() && !ChassisComp->IsFullDrift() || ChassisComp->IsRemainDrift() ? Q : CorrectedQ).RotateVector(Forward);
-	CentrifugalForceDir = FMath::Lerp(CentrifugalForceDir, FVector(0), 0.05f); 
+	CentrifugalForceDir = FMath::Lerp(CentrifugalForceDir, FVector(0), 0.25f); 
 	FPositionData CurPositionData = {GetActorLocation(), Forward, Right * -ChassisComp->GetDriftDir()}; 
 	if (Utility::Between_EE(CorrectedVelocity * 0.036f, 20.0f, 350.0f) && ChassisComp->IsDrift() && LastPositionData.Right.Dot(Right * -ChassisComp->GetDriftDir()) > 0.0f && Dir == ChassisComp->GetDriftDir())
 	{
 		CentrifugalForceDir = Right * -ChassisComp->GetDriftDir(); 
-		CurPositionData.Right = CentrifugalForceDir;
+		CurPositionData.Right = CentrifugalForceDir; 
 		float CentrifugalForce = Utility::CalculateCentrifugalForce(Velocity, LastPositionData, CurPositionData);
-		CentrifugalForceDir *= CentrifugalForce * DeltaTime * ChassisComp->GetDriftAngleRate(); 
+		CentrifugalForceDir *= CentrifugalForce * DeltaTime * ChassisComp->GetDriftAngleRate() * (HandleInputStack.Num() && ChassisComp->IsFullDrift() ? 0.0f : 1.0f); 
 	} 
 	LastPositionData = CurPositionData;
 	
-	if (InelasticForce.Length() > 0.0f) 
-	{
-		InelasticForce = FMath::Lerp(InelasticForce, FVector(0), 0.25f); 
-	} 
+	// if (InelasticForce.Length() > 0.0f) 
+	// { 
+	// 	InelasticForce = FMath::Lerp(InelasticForce, FVector(0), 0.25f); 
+	// } 
 
-	MySetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime + CentrifugalForceDir.GetClampedToSize2D(-5000, 5000), true);
+	MySetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime + CentrifugalForceDir.GetClampedToSize2D(-5000.0f * DeltaTime, 5000 * DeltaTime), true);
+	//MySetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime + CentrifugalForceDir.GetClampedToSize2D(-1000, 1000) + InelasticForce, true); 
 	
-	FHitResult Hit; 
+	FHitResult GroundHit;  
+	FHitResult RunwayHit;  
 	FVector Start = GetActorLocation() + FVector(0, 0, -1) * 25.0f; 
-	FVector End = Start + FVector(0, 0, -1) * 10.0f; 
+	FVector End = Start + FVector(0, 0, -1) * 5.0f; 
 	FCollisionQueryParams CQP; 
 	CQP.AddIgnoredActor(this); 
-	bool LineTraceResult = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECollisionChannel::ECC_Visibility, CQP); 
-	bool GroundCheck = LineTraceResult && Hit.Distance < 0.1f; 
+	bool GroundRet = GetWorld()->LineTraceSingleByChannel(GroundHit, Start, End, ECollisionChannel::ECC_Visibility, CQP); 
+	bool GroundCheck = GroundRet && GroundHit.Distance < 0.1f; 
+
+	bool RunwayRet = GetWorld()->LineTraceSingleByChannel(GroundHit, Start, End, ECollisionChannel::ECC_Visibility, CQP); 
+
 	SetActorLocation(GetActorLocation() + (GroundCheck ? FVector(0) : FVector(0, 0, -1) * GravityForce * DeltaTime), true); 
-	////MySetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime + CentrifugalForceDir.GetClampedToSize2D(-1000, 1000) + InelasticForce, true); 
 	
-	float MeshAngle = Q.GetAngle() * Dir / DeltaTime; 
+	float MeshAngle = Q.GetAngle() * Dir / DeltaTime;
 	FQuat MeshQ(FVector(0, 0, 1), MeshAngle);
 	FRotator MeshRot = MeshQ.RotateVector(Forward).Rotation(); 
+	// if (GroundCheck)
+	// {
+	// 	float PitchAngle = FMath::RadiansToDegrees(FMath::Acos(FVector(0, 0, 1).Dot(Hit.ImpactNormal))); 
+	// 	float PitchAngleDir = FMath::Sign(FMath::Acos(Forward.Dot(Hit.ImpactNormal))); 
+	// 	MeshRot.Pitch = PitchAngle * PitchAngleDir;
+	// } 
 	SetActorRotation(MeshRot);
-	
-	CameraRot = MeshQ.UnrotateVector(FVector(1.0f, 0.0f, 0.0f)).Rotation(); 
-	GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), CameraRot.Yaw -  FMath::RadiansToDegrees(MeshAngle)));
-	if (ChassisComp->IsRemainDrift())
-	{ 
-		CameraRot = FMath::Lerp(SpringArmComp->GetRelativeRotation(), FRotator(0), 0.0175f * ChassisComp->GetInertiaAngle()); 
-	}
-	else if (!HandleInputStack.Num())
-	{ 
-		CameraRot = FMath::Lerp(SpringArmComp->GetRelativeRotation(), FRotator(0), 0.03f); 
+
+	if (!ChassisComp->IsFullDrift())
+	{
+		CameraRot = MeshQ.UnrotateVector(FVector(1.0f, 0.0f, 0.0f)).Rotation(); 
+		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), CameraRot.Yaw -  FMath::RadiansToDegrees(MeshAngle)));
+		if (ChassisComp->IsRemainDrift())
+		{ 
+			CameraRot = FMath::Lerp(SpringArmComp->GetRelativeRotation(), FRotator(0), 0.0065f * (ChassisComp->IsBoost() ? 1.5f : 1.0f)); 
+		} 
+		else if (!HandleInputStack.Num() || HandleInputStack.Top() != Dir)
+		{ 
+			CameraRot = FMath::Lerp(SpringArmComp->GetRelativeRotation(), FRotator(0), 0.025f); 
+		} 
+		else if ((HandleInputStack.Num() || ChassisComp->IsDrift()) && FMath::Abs(CameraRot.Yaw - FMath::RadiansToDegrees(MeshAngle)) > 0.25f)
+		{ 
+			CameraRot = FMath::Lerp(SpringArmComp->GetRelativeRotation(), CameraRot, (ChassisComp->IsFullDrift() ? 1.0f : 0.1f)); 
+		} 
+		AimPoint->SetRelativeLocation(CameraRot.Vector() * 200.0f);
+		SpringArmComp->SetRelativeRotation(CameraRot); 
+		SpringArmComp->TargetArmLength = FMath::Lerp(SpringArmComp->TargetArmLength, ChassisComp->IsBoost() ? 800.0f : 650.0f, 0.025f);
+		UE_LOG(LogTemp, Warning, TEXT("%f, %f"), CameraRot.Yaw, FMath::RadiansToDegrees(MeshAngle));
 	} 
-	else if ((HandleInputStack.Num() || ChassisComp->IsDrift()) && FMath::Abs(CameraRot.Yaw - FMath::RadiansToDegrees(MeshAngle)) > 0.25f)
-	{ 
-		CameraRot = FMath::Lerp(SpringArmComp->GetRelativeRotation(), CameraRot, (ChassisComp->IsFullDrift() ? 1.0f : 0.1f)); 
-	} 
-	AimPoint->SetRelativeLocation(CameraRot.Vector() * 200.0f);
-	SpringArmComp->SetRelativeRotation(CameraRot); 
-	SpringArmComp->TargetArmLength = FMath::Lerp(SpringArmComp->TargetArmLength, ChassisComp->IsBoost() ? 800.0f : 650.0f, 0.025f);
-	UE_LOG(LogTemp, Warning, TEXT("%f, %f"), CameraRot.Yaw, FMath::RadiansToDegrees(MeshAngle));
 	
 	Forward = RotatedForward;
 	Right = FQuat(FVector(0, 0, 1), FMath::DegreesToRadians(90.0f)).RotateVector(Forward); 
@@ -162,12 +180,18 @@ void AMain_Player::Tick(float DeltaTime)
 	{
 		LeftBooster->Activate(); 
 		RightBooster->Activate(); 
+
+		LeftRedLight->Activate(); 
+		RightRedLight->Activate(); 
 	} 
 	else
-	{
-		LeftBooster->Deactivate();
-		RightBooster->Deactivate(); 
-	}
+	{ 
+		LeftBooster->Deactivate(); 
+		RightBooster->Deactivate();
+		
+		LeftRedLight->Deactivate(); 
+		RightRedLight->Deactivate(); 
+	} 
 	
 	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Velocity * 0.036f)); 
 }

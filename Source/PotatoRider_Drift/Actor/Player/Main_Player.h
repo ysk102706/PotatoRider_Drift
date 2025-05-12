@@ -61,6 +61,7 @@ private:
 	class USpringArmComponent* SpringArmComp;
 	UPROPERTY(EditAnywhere)
 	class UCameraComponent* CameraComp;
+	
 	UPROPERTY(EditAnywhere)
 	class UNiagaraComponent* LeftSkidMark;
 	UPROPERTY(EditAnywhere)
@@ -69,6 +70,10 @@ private:
 	class UNiagaraComponent* LeftBooster;
 	UPROPERTY(EditAnywhere)
 	class UNiagaraComponent* RightBooster; 
+	UPROPERTY(EditAnywhere)
+	class UNiagaraComponent* LeftRedLight; 
+	UPROPERTY(EditAnywhere)
+	class UNiagaraComponent* RightRedLight; 
 	
 	UPROPERTY() 
 	class UChassisComponent* ChassisComp; 

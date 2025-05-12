@@ -37,7 +37,7 @@ struct FSteeringDevice
 public: 
 	float HandleAngle;
 	float Max_Angle = 35.0f; 
-	float EndDriftAngle = 25.0f; 
+	float EndDriftAngle = 28.0f; 
 	float TireCircumference = PI * 0.71f; 
 
 	float Correction_Min_Vel; 
@@ -142,7 +142,6 @@ public:
 	bool IsBreakDrift(); 
 	bool IsFullDrift(); 
 	bool IsBoost(); 
-	float GetInertiaAngle(); 
 
 	void ResetHandleForce(); 
 	void BreakDrift(); 

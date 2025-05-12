@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Main_Player.h"
+#include "Actor/Player/Main_Player.h"
 
 UENUM(BlueprintType)
 enum class EInputAction : uint8 
