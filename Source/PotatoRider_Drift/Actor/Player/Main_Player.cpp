@@ -49,10 +49,10 @@ AMain_Player::AMain_Player()
 	LeftBooster->SetupAttachment(MeshComp, TEXT("L_Booster"));
 	RightBooster->SetupAttachment(MeshComp, TEXT("R_Booster"));
 
-	LeftBooster = CreateDefaultSubobject<UNiagaraComponent>(TEXT("LeftRedLight"));
-	RightBooster = CreateDefaultSubobject<UNiagaraComponent>(TEXT("RightRedLight"));
-	LeftBooster->SetupAttachment(MeshComp, TEXT("L_RedLight"));
-	RightBooster->SetupAttachment(MeshComp, TEXT("R_RedLight")); 
+	LeftRedLight = CreateDefaultSubobject<UNiagaraComponent>(TEXT("LeftRedLight"));
+	RightRedLight = CreateDefaultSubobject<UNiagaraComponent>(TEXT("RightRedLight"));
+	LeftRedLight->SetupAttachment(MeshComp, TEXT("L_RedLight"));
+	RightRedLight->SetupAttachment(MeshComp, TEXT("R_RedLight")); 
 	
 	ChassisComp = CreateDefaultSubobject<UChassisComponent>(TEXT("ChassisComp"));
 }
@@ -115,31 +115,48 @@ void AMain_Player::Tick(float DeltaTime)
 	
 	FHitResult GroundHit;  
 	FHitResult RunwayHit;  
-	FVector Start = GetActorLocation() + FVector(0, 0, -1) * 25.0f; 
-	FVector End = Start + FVector(0, 0, -1) * 5.0f; 
+	FVector Start = GetActorLocation() + FVector(0, 0, -1) * 40.0f; 
+	FVector End = Start + FVector(0, 0, -1) * 30.0f; 
 	FCollisionQueryParams CQP; 
 	CQP.AddIgnoredActor(this); 
-	bool GroundRet = GetWorld()->LineTraceSingleByChannel(GroundHit, Start, End, ECollisionChannel::ECC_Visibility, CQP); 
-	bool GroundCheck = GroundRet && GroundHit.Distance < 0.1f; 
+	bool GroundRet = GetWorld()->LineTraceSingleByChannel(GroundHit, Start, End, ECollisionChannel::ECC_GameTraceChannel5, CQP); 
+	bool GroundCheck = GroundRet && GroundHit.Distance < 25.0f; 
+	DrawDebugLine(GetWorld(), Start, End, GroundCheck ? FColor::Blue : FColor::Red, false, 10000.0f); 
+	Start = GetActorLocation() + Forward * 135.0f + FVector(0, 0, -1) * 25.0f; 
+	End = Start + Forward * 100.0f; 
+	bool RunwayRet = GetWorld()->LineTraceSingleByChannel(RunwayHit, Start, End, ECollisionChannel::ECC_GameTraceChannel5, CQP); 
+	DrawDebugLine(GetWorld(), Start, End, RunwayRet ? FColor::Blue : FColor::Red, false, 10000.0f);
 
-	Start = GetActorLocation() + Forward * 100.0f; 
-	End = Start + Forward * 5.0f; 
-	bool RunwayRet = GetWorld()->LineTraceSingleByChannel(RunwayHit, Start, End, ECollisionChannel::ECC_Visibility, CQP); 
-	
-	SetActorLocation(GetActorLocation() + (GroundCheck ? FVector(0) : FVector(0, 0, -1) * GravityForce * DeltaTime) + (RunwayRet ? RunwayHit : GroundHit).ImpactNormal * 10.0f, true);
+	SetActorLocation(GetActorLocation() + (GroundCheck ? FVector(0) : FVector(0, 0, -1) * GravityForce * DeltaTime));
 	
 	float MeshAngle = Q.GetAngle() * Dir / DeltaTime;
 	FQuat MeshQ(FVector(0, 0, 1), MeshAngle);
-	FRotator MeshRot = MeshQ.RotateVector(Forward).Rotation(); 
-	float PitchAngle = FMath::RadiansToDegrees(FMath::Acos(FVector(0, 0, 1).Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal))); 
-	float PitchAngleDir = FMath::Sign(FMath::Acos(Forward.Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal)));
-	MeshRot.Pitch = PitchAngle * PitchAngleDir; 
+	FRotator MeshRot = MeshQ.RotateVector(Forward).Rotation();
+	if (RunwayRet || GroundCheck)
+	{ 
+		PitchAngle = FMath::RadiansToDegrees(FMath::Acos(FVector(0, 0, 1).Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal))); 
+		float PitchAngleDir = FMath::Sign(FMath::Acos(Forward.Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal)));
+		MeshRot.Pitch = PitchAngle * PitchAngleDir; 
+		FVector X = (RunwayRet ? RunwayHit : GroundHit).ImpactNormal; 
+		//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f, %f, %f"), X.X, X.Y, X.Z));
+		if (GroundCheck && !RunwayRet)
+			SetActorLocation(GroundHit.ImpactPoint + X * 50.0f);
+		else if (!RunwayRet)
+			SetActorLocation(GetActorLocation() + X * DeltaTime);
+		//DrawDebugLine(GetWorld(), (RunwayRet ? RunwayHit : GroundHit).ImpactPoint,(RunwayRet ? RunwayHit : GroundHit).ImpactPoint + X * 10000.0f, FColor::Red, false, 10000.0f); 
+	}
+	else 
+	{
+		PitchAngle = FMath::Abs(Forward.Z) ? (Forward.Z > 0 ? -5.0f : 5.0f) : 0.0f; 
+		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), PitchAngle)); 
+		UE_LOG(LogTemp, Warning, TEXT("%f"), PitchAngle); 
+	}
 	SetActorRotation(MeshRot);
 
 	if (!ChassisComp->IsFullDrift())
 	{
 		CameraRot = MeshQ.UnrotateVector(FVector(1.0f, 0.0f, 0.0f)).Rotation(); 
-		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), CameraRot.Yaw -  FMath::RadiansToDegrees(MeshAngle)));
+		//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), CameraRot.Yaw -  FMath::RadiansToDegrees(MeshAngle)));
 		if (ChassisComp->IsRemainDrift())
 		{ 
 			CameraRot = FMath::Lerp(SpringArmComp->GetRelativeRotation(), FRotator(0), 0.0065f * (ChassisComp->IsBoost() ? 1.5f : 1.0f)); 
@@ -155,12 +172,16 @@ void AMain_Player::Tick(float DeltaTime)
 		AimPoint->SetRelativeLocation(CameraRot.Vector() * 200.0f);
 		SpringArmComp->SetRelativeRotation(CameraRot); 
 		SpringArmComp->TargetArmLength = FMath::Lerp(SpringArmComp->TargetArmLength, ChassisComp->IsBoost() ? 800.0f : 650.0f, 0.025f);
-		UE_LOG(LogTemp, Warning, TEXT("%f, %f"), CameraRot.Yaw, FMath::RadiansToDegrees(MeshAngle));
 	} 
-	
-	Forward = RotatedForward;
-	Right = FQuat(FVector(0, 0, 1), FMath::DegreesToRadians(90.0f)).RotateVector(Forward); 
+	Forward = FQuat(FVector(1, 0, 0), FMath::DegreesToRadians(PitchAngle)).RotateVector(RotatedForward);
+	if (FMath::Abs(Forward.Z) < 0.1f)
+	{
+		Forward.Z = 0.0f; 
+	}
+ 	Right = FQuat(FVector(0, 0, 1), FMath::DegreesToRadians(90.0f)).RotateVector(Forward); 
 
+	UE_LOG(LogTemp, Warning, TEXT("%f, %f, %f"), Forward.X, Forward.Y, Forward.Z);
+	
 	auto* SpeedometerUI = GameMode->UI()->GetWidget<USpeedometerUI>(GetWorld(), EWidgetType::SpeedometerUI);
 	SpeedometerUI->UpdateSpeed(Velocity * 0.036f);
 
@@ -390,5 +411,4 @@ void AMain_Player::OnBoxCompHit(UPrimitiveComponent* HitComponent, AActor* Other
 	float Velocity = ChassisComp->CalculateVelocity(true); 
 	FVector Dir = Utility::CalculateReflectionVector(Forward, NormalImpulse); 
 	InelasticForce = Utility::CalculateInelasticCollision(Dir, Velocity) * GetWorld()->GetDeltaSeconds();
-	UE_LOG(LogTemp, Warning, TEXT("%f"), InelasticForce.Length()); 
 }

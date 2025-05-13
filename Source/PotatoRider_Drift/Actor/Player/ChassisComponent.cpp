@@ -43,7 +43,7 @@ void UChassisComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 
 	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Steering.HandleAngle));
 	//UE_LOG(LogTemp, Warning, TEXT("%f"), Steering.HandleAngle);
-	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f, %f"), Engine.RPM, Booster.Additional_RPM)); 
+	//GEngineGEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f, %f"), Engine.RPM, Booster.Additional_RPM)); 
 } 
 
 void UChassisComponent::Accelerator(float Difference)

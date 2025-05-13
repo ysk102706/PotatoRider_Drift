@@ -88,13 +88,14 @@ private:
 	
 	FVector Forward;
 	FVector Right; 
-	FRotator CameraRot; 
+	FRotator CameraRot;
+	float PitchAngle; 
 	FPositionData LastPositionData; 
 	
 	FVector CentrifugalForceDir; 
 	FVector InelasticForce; 
 
-	float GravityForce = 9.81f; 
+	float GravityForce = 981.0f; 
 	
 	void MySetActorLocation(const FVector& NewLocation, bool bSweep);
 
