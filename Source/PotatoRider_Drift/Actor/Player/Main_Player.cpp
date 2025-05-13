@@ -122,7 +122,7 @@ void AMain_Player::Tick(float DeltaTime)
 	bool GroundRet = GetWorld()->LineTraceSingleByChannel(GroundHit, Start, End, ECollisionChannel::ECC_GameTraceChannel5, CQP); 
 	bool GroundCheck = GroundRet && GroundHit.Distance < 25.0f; 
 	DrawDebugLine(GetWorld(), Start, End, GroundCheck ? FColor::Blue : FColor::Red, false, 10000.0f); 
-	Start = GetActorLocation() + Forward * 135.0f + FVector(0, 0, -1) * 25.0f; 
+	Start = GetActorLocation() + Forward * 150.0f + FVector(0, 0, -1) * 25.0f; 
 	End = Start + Forward * 100.0f; 
 	bool RunwayRet = GetWorld()->LineTraceSingleByChannel(RunwayHit, Start, End, ECollisionChannel::ECC_GameTraceChannel5, CQP); 
 	DrawDebugLine(GetWorld(), Start, End, RunwayRet ? FColor::Blue : FColor::Red, false, 10000.0f);
@@ -131,7 +131,7 @@ void AMain_Player::Tick(float DeltaTime)
 	
 	float MeshAngle = Q.GetAngle() * Dir / DeltaTime;
 	FQuat MeshQ(FVector(0, 0, 1), MeshAngle);
-	FRotator MeshRot = MeshQ.RotateVector(Forward).Rotation();
+	FRotator MeshRot = MeshQ.RotateVector(Forward).Rotation(); 
 	if (RunwayRet || GroundCheck)
 	{ 
 		PitchAngle = FMath::RadiansToDegrees(FMath::Acos(FVector(0, 0, 1).Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal))); 
@@ -173,7 +173,7 @@ void AMain_Player::Tick(float DeltaTime)
 		SpringArmComp->SetRelativeRotation(CameraRot); 
 		SpringArmComp->TargetArmLength = FMath::Lerp(SpringArmComp->TargetArmLength, ChassisComp->IsBoost() ? 800.0f : 650.0f, 0.025f);
 	} 
-	Forward = FQuat(FVector(1, 0, 0), FMath::DegreesToRadians(PitchAngle)).RotateVector(RotatedForward);
+	Forward = FQuat(FVector(1, 0, 0), FMath::DegreesToRadians(PitchAngle)).RotateVector(RotatedForward.GetSafeNormal2D());
 	if (FMath::Abs(Forward.Z) < 0.1f)
 	{
 		Forward.Z = 0.0f; 
@@ -411,4 +411,5 @@ void AMain_Player::OnBoxCompHit(UPrimitiveComponent* HitComponent, AActor* Other
 	float Velocity = ChassisComp->CalculateVelocity(true); 
 	FVector Dir = Utility::CalculateReflectionVector(Forward, NormalImpulse); 
 	InelasticForce = Utility::CalculateInelasticCollision(Dir, Velocity) * GetWorld()->GetDeltaSeconds();
+	DrawDebugLine(GetWorld(), Hit.ImpactPoint, Hit.ImpactPoint + NormalImpulse * 500.0f, FColor::Red); 
 }
