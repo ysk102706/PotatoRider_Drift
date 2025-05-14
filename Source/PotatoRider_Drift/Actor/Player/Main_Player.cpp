@@ -5,6 +5,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "ChassisComponent.h"
+#include "EngineUtils.h"
 #include "../RacingGameMode.h"
 #include "../../UIManager.h"
 #include "../../Utility.h"
@@ -13,6 +14,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "../../UI/SpeedometerUI.h"
 #include "NiagaraComponent.h" 
+#include "../ResetPoint.h"
 
 AMain_Player::AMain_Player()
 {
@@ -52,7 +54,10 @@ AMain_Player::AMain_Player()
 	LeftRedLight = CreateDefaultSubobject<UNiagaraComponent>(TEXT("LeftRedLight"));
 	RightRedLight = CreateDefaultSubobject<UNiagaraComponent>(TEXT("RightRedLight"));
 	LeftRedLight->SetupAttachment(MeshComp, TEXT("L_RedLight"));
-	RightRedLight->SetupAttachment(MeshComp, TEXT("R_RedLight")); 
+	RightRedLight->SetupAttachment(MeshComp, TEXT("R_RedLight"));
+
+	AirResistance = CreateDefaultSubobject<UNiagaraComponent>(TEXT("AirResistance"));
+	AirResistance->SetupAttachment(MeshComp, TEXT("AirResistance")); 
 	
 	ChassisComp = CreateDefaultSubobject<UChassisComponent>(TEXT("ChassisComp"));
 }
@@ -79,6 +84,16 @@ void AMain_Player::BeginPlay()
 		GameMode->UI()->ShowWidget(GetWorld(), EWidgetType::BoosterUI);
 		GameMode->UI()->ShowWidget(GetWorld(), EWidgetType::SpeedometerUI);
 	}
+
+	for (TActorIterator<AResetPoint> It(GetWorld()); It; ++It)
+	{
+		AResetPoint* Point = *It; 
+		if (Point->ActorHasTag("Start"))
+		{
+			ResetPoint = Point;
+			break; 
+		}
+	}
 }
 
 void AMain_Player::Tick(float DeltaTime)
@@ -86,11 +101,11 @@ void AMain_Player::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	float Velocity = ChassisComp->CalculateVelocity(true) / (GameMode->IsRaceEnd() ? 2.5f : 1.0f);
-	float CorrectedVelocity = Velocity / (HandleInputStack.Num() && ChassisComp->IsFullDrift() ? 1.0f : 1.0f);
+	float CorrectedVelocity = Velocity / (HandleInputStack.Num() && ChassisComp->IsFullDrift() ? 3.0f : 1.0f);
 	
 	FQuat Q = ChassisComp->CalculateQuat();
 	float Dir = FMath::Sign(Forward.Cross(Q.RotateVector(Forward)).Z); 
-	float QuatCorrectedRate = 1.0f + (FMath::Max(FMath::Abs(Velocity * 0.036f), 45.0f) - 45.0f) / 235.0f * (HandleInputStack.Num() && ChassisComp->IsFullDrift() ? 15.0f : 1.0f);
+	float QuatCorrectedRate = 1.0f + (FMath::Max(FMath::Abs(Velocity * 0.036f), 45.0f) - 45.0f) / 235.0f * (HandleInputStack.Num() && ChassisComp->IsFullDrift() ? 3.0f : 1.0f);
 	FQuat CorrectedQ = FQuat(FVector(0, 0, 1), Q.GetAngle() * Dir * QuatCorrectedRate);
 	
 	FVector RotatedForward = (ChassisComp->IsDrift() && !ChassisComp->IsFullDrift() || ChassisComp->IsRemainDrift() ? Q : CorrectedQ).RotateVector(Forward);
@@ -101,16 +116,21 @@ void AMain_Player::Tick(float DeltaTime)
 		CentrifugalForceDir = Right * -ChassisComp->GetDriftDir(); 
 		CurPositionData.Right = CentrifugalForceDir; 
 		float CentrifugalForce = Utility::CalculateCentrifugalForce(Velocity, LastPositionData, CurPositionData);
-		CentrifugalForceDir *= CentrifugalForce * DeltaTime * ChassisComp->GetDriftAngleRate() * (HandleInputStack.Num() && ChassisComp->IsFullDrift() ? 0.0f : 1.0f); 
+		CentrifugalForceDir *= CentrifugalForce * DeltaTime * ChassisComp->GetDriftAngleRate(); 
+		//CentrifugalForceDir *= CentrifugalForce * DeltaTime * ChassisComp->GetDriftAngleRate() * (HandleInputStack.Num() && ChassisComp->IsFullDrift() ? 0.0f : 1.0f); 
 	} 
 	LastPositionData = CurPositionData;
-	
-	// if (InelasticForce.Length() > 0.0f) 
-	// { 
-	// 	InelasticForce = FMath::Lerp(InelasticForce, FVector(0), 0.25f); 
-	// } 
-
 	MySetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime + CentrifugalForceDir.GetClampedToSize2D(-5000.0f * DeltaTime, 5000 * DeltaTime), true);
+	
+	if (InelasticForce.Length() > 0.0f) 
+	{ 
+		InelasticForce = FMath::Lerp(InelasticForce, FVector(0), 0.05f); 
+	} 
+
+	FVector Pre = GetActorLocation(); 
+	SetActorLocation(GetActorLocation() + InelasticForce * DeltaTime * 6.0f); 
+	FVector Cur = GetActorLocation(); 
+	UE_LOG(LogTemp, Warning, TEXT("%f, %f"), InelasticForce.Length(), (Cur - Pre).Length()); 
 	//MySetActorLocation(GetActorLocation() + RotatedForward * Velocity * DeltaTime + CentrifugalForceDir.GetClampedToSize2D(-1000, 1000) + InelasticForce, true); 
 	
 	FHitResult GroundHit;  
@@ -122,41 +142,40 @@ void AMain_Player::Tick(float DeltaTime)
 	bool GroundRet = GetWorld()->LineTraceSingleByChannel(GroundHit, Start, End, ECollisionChannel::ECC_GameTraceChannel5, CQP); 
 	bool GroundCheck = GroundRet && GroundHit.Distance < 25.0f; 
 	DrawDebugLine(GetWorld(), Start, End, GroundCheck ? FColor::Blue : FColor::Red, false, 10000.0f); 
-	Start = GetActorLocation() + Forward * 150.0f + FVector(0, 0, -1) * 25.0f; 
+	Start = GetActorLocation() + Forward * 150.0f + FVector(0, 0, -1) * 20.0f; 
 	End = Start + Forward * 100.0f; 
 	bool RunwayRet = GetWorld()->LineTraceSingleByChannel(RunwayHit, Start, End, ECollisionChannel::ECC_GameTraceChannel5, CQP); 
-	DrawDebugLine(GetWorld(), Start, End, RunwayRet ? FColor::Blue : FColor::Red, false, 10000.0f);
-
-	SetActorLocation(GetActorLocation() + (GroundCheck ? FVector(0) : FVector(0, 0, -1) * GravityForce * DeltaTime));
+	DrawDebugLine(GetWorld(), Start, End, RunwayRet ? FColor::Blue : FColor::Red, false, 10000.0f); 
+	if (RunwayRet) DrawDebugLine(GetWorld(), RunwayHit.ImpactPoint, RunwayHit.ImpactPoint + RunwayHit.ImpactNormal * 500.0f,  FColor::Black, false, 10000.0f); 
+	SetActorLocation(GetActorLocation() + (GroundCheck ? FVector(0) : FVector(0, 0, -1) * GravityForce * DeltaTime)); 
 	
 	float MeshAngle = Q.GetAngle() * Dir / DeltaTime;
 	FQuat MeshQ(FVector(0, 0, 1), MeshAngle);
 	FRotator MeshRot = MeshQ.RotateVector(Forward).Rotation(); 
 	if (RunwayRet || GroundCheck)
 	{ 
-		PitchAngle = FMath::RadiansToDegrees(FMath::Acos(FVector(0, 0, 1).Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal))); 
-		float PitchAngleDir = FMath::Sign(FMath::Acos(Forward.Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal)));
-		MeshRot.Pitch = PitchAngle * PitchAngleDir; 
+		PitchAngle = FMath::Acos(FVector(0, 0, 1).Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal)); 
+		float PitchAngleDir = FMath::Sign(Forward.GetSafeNormal2D().Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal));
+		MeshRot.Pitch = FMath::RadiansToDegrees(PitchAngle * -PitchAngleDir); 
 		FVector X = (RunwayRet ? RunwayHit : GroundHit).ImpactNormal; 
-		//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f, %f, %f"), X.X, X.Y, X.Z));
-		if (GroundCheck && !RunwayRet)
-			SetActorLocation(GroundHit.ImpactPoint + X * 50.0f);
-		else if (!RunwayRet)
-			SetActorLocation(GetActorLocation() + X * DeltaTime);
-		//DrawDebugLine(GetWorld(), (RunwayRet ? RunwayHit : GroundHit).ImpactPoint,(RunwayRet ? RunwayHit : GroundHit).ImpactPoint + X * 10000.0f, FColor::Red, false, 10000.0f); 
+		if (GroundCheck)
+        {
+			SetActorLocation(GroundHit.ImpactPoint + X * 50.0f); 
+		}
+		
+		//GEngine->AddOnScreenDebugMessage(-1, 1000.0f, FColor::Red, FString::Printf(TEXT("%f, %f"), PitchAngle, PitchAngleDir)); 
 	}
 	else 
 	{
-		PitchAngle = FMath::Abs(Forward.Z) ? (Forward.Z > 0 ? -5.0f : 5.0f) : 0.0f; 
-		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), PitchAngle)); 
-		UE_LOG(LogTemp, Warning, TEXT("%f"), PitchAngle); 
+		PitchAngle = FMath::Lerp(PitchAngle, 0.0f, 0.05f); 
+		//PitchAngle = FMath::Abs(Forward.Z) ? (Forward.Z > 0 ? -5.0f : 5.0f) : 0.0f; 
+		//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), PitchAngle)); 
 	}
 	SetActorRotation(MeshRot);
 
 	if (!ChassisComp->IsFullDrift())
 	{
 		CameraRot = MeshQ.UnrotateVector(FVector(1.0f, 0.0f, 0.0f)).Rotation(); 
-		//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), CameraRot.Yaw -  FMath::RadiansToDegrees(MeshAngle)));
 		if (ChassisComp->IsRemainDrift())
 		{ 
 			CameraRot = FMath::Lerp(SpringArmComp->GetRelativeRotation(), FRotator(0), 0.0065f * (ChassisComp->IsBoost() ? 1.5f : 1.0f)); 
@@ -173,15 +192,13 @@ void AMain_Player::Tick(float DeltaTime)
 		SpringArmComp->SetRelativeRotation(CameraRot); 
 		SpringArmComp->TargetArmLength = FMath::Lerp(SpringArmComp->TargetArmLength, ChassisComp->IsBoost() ? 800.0f : 650.0f, 0.025f);
 	} 
-	Forward = FQuat(FVector(1, 0, 0), FMath::DegreesToRadians(PitchAngle)).RotateVector(RotatedForward.GetSafeNormal2D());
+	Forward = FQuat(Right, PitchAngle).UnrotateVector(RotatedForward.GetSafeNormal2D());
 	if (FMath::Abs(Forward.Z) < 0.1f)
-	{
+	{ 
 		Forward.Z = 0.0f; 
 	}
- 	Right = FQuat(FVector(0, 0, 1), FMath::DegreesToRadians(90.0f)).RotateVector(Forward); 
+ 	Right = FQuat(FVector(0, 0, 1), FMath::DegreesToRadians(90.0f)).RotateVector(Forward.GetSafeNormal2D()); 
 
-	UE_LOG(LogTemp, Warning, TEXT("%f, %f, %f"), Forward.X, Forward.Y, Forward.Z);
-	
 	auto* SpeedometerUI = GameMode->UI()->GetWidget<USpeedometerUI>(GetWorld(), EWidgetType::SpeedometerUI);
 	SpeedometerUI->UpdateSpeed(Velocity * 0.036f);
 
@@ -202,7 +219,9 @@ void AMain_Player::Tick(float DeltaTime)
 		RightBooster->Activate(); 
 
 		LeftRedLight->Activate(); 
-		RightRedLight->Activate(); 
+		RightRedLight->Activate();
+
+		AirResistance->Activate(); 
 	} 
 	else
 	{ 
@@ -210,7 +229,9 @@ void AMain_Player::Tick(float DeltaTime)
 		RightBooster->Deactivate();
 		
 		LeftRedLight->Deactivate(); 
-		RightRedLight->Deactivate(); 
+		RightRedLight->Deactivate();
+		
+		AirResistance->Deactivate(); 
 	} 
 	
 	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), Velocity * 0.036f)); 
@@ -238,8 +259,20 @@ void AMain_Player::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		IMC->BindAction(IA[int(EInputAction::Drift)], ETriggerEvent::Completed, this, &AMain_Player::OnReleaseDrift);
 
 		IMC->BindAction(IA[int(EInputAction::Booster)], ETriggerEvent::Started, this, &AMain_Player::OnActionBooster);
+
+		IMC->BindAction(IA[int(EInputAction::Reset)], ETriggerEvent::Started, this, &AMain_Player::OnActionReset); 
 	}
 }
+
+void AMain_Player::SetResetPoint(AResetPoint* NewResetPoint)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, TEXT("SetResetPoint Try")); 
+	if (!ResetPoint || NewResetPoint->Idx == ResetPoint->Idx + 1 || NewResetPoint->Idx == ResetPoint->Idx - 1)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, TEXT("SetResetPoint Success")); 
+		ResetPoint = NewResetPoint; 
+	}
+} 
 
 void AMain_Player::OnPressAccelerator(const FInputActionValue& Value)
 {
@@ -350,6 +383,12 @@ void AMain_Player::OnActionBooster(const FInputActionValue& Value)
 	}
 }
 
+void AMain_Player::OnActionReset(const FInputActionValue& Value)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, TEXT("Reset!!")); 
+	SetActorLocationAndRotation(ResetPoint->GetActorLocation(), ResetPoint->GetActorRotation()); 
+} 
+
 void AMain_Player::Accelerator(float Value)
 {
 	int sz = AccelerationInputStack.Num();
@@ -409,7 +448,8 @@ void AMain_Player::OnBoxCompHit(UPrimitiveComponent* HitComponent, AActor* Other
 	UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 { 
 	float Velocity = ChassisComp->CalculateVelocity(true); 
-	FVector Dir = Utility::CalculateReflectionVector(Forward, NormalImpulse); 
-	InelasticForce = Utility::CalculateInelasticCollision(Dir, Velocity) * GetWorld()->GetDeltaSeconds();
-	DrawDebugLine(GetWorld(), Hit.ImpactPoint, Hit.ImpactPoint + NormalImpulse * 500.0f, FColor::Red); 
+	FVector Dir = Utility::CalculateReflectionVector(Forward, Hit.ImpactNormal); 
+	InelasticForce = Utility::CalculateInelasticCollision(Dir, Velocity);
+	DrawDebugLine(GetWorld(), Hit.ImpactPoint, Hit.ImpactPoint + InelasticForce, FColor::Red);
+	ChassisComp->OnCollisionDetection(); 
 }

@@ -28,7 +28,9 @@ public:
 	virtual void BeginPlay() override; 
 	virtual void Tick(float DeltaTime) override; 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	
+
+	void SetResetPoint(class AResetPoint* NewResetPoint);
+
 private:
 	void OnPressAccelerator(const FInputActionValue& Value); 
 	void OnReleaseAccelerator(const FInputActionValue& Value);
@@ -40,14 +42,15 @@ private:
 	void OnReleaseRightHandle(const FInputActionValue& Value); 
 	void OnPressStartDrift(const FInputActionValue& Value); 
 	void OnReleaseDrift(const FInputActionValue& Value);
-	void OnActionBooster(const FInputActionValue& Value); 
+	void OnActionBooster(const FInputActionValue& Value);
+	void OnActionReset(const FInputActionValue& Value); 
 
 	void Accelerator(float Value);
 	void Handle(float Value);
 
 	UFUNCTION() 
 	void OnBoxCompHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit); 
-
+	
 	UPROPERTY()
 	class ARacingGameMode* GameMode; 
 	
@@ -74,6 +77,8 @@ private:
 	class UNiagaraComponent* LeftRedLight; 
 	UPROPERTY(EditAnywhere)
 	class UNiagaraComponent* RightRedLight; 
+	UPROPERTY(EditAnywhere)
+	class UNiagaraComponent* AirResistance; 
 	
 	UPROPERTY() 
 	class UChassisComponent* ChassisComp; 
@@ -94,8 +99,10 @@ private:
 	
 	FVector CentrifugalForceDir; 
 	FVector InelasticForce; 
-
 	float GravityForce = 981.0f; 
+
+	UPROPERTY() 
+	class AResetPoint* ResetPoint; 
 	
 	void MySetActorLocation(const FVector& NewLocation, bool bSweep);
 

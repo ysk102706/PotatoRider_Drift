@@ -13,7 +13,8 @@ enum class EInputAction : uint8
 	LeftHandle	UMETA(DisplayName = "LeftHandle"), 
 	RightHandle	UMETA(DisplayName = "RightHandle"), 
 	Drift		UMETA(DisplayName = "Drift"),
-	Booster		UMETA(DisplayName = "Booster")
+	Booster		UMETA(DisplayName = "Booster"),
+	Reset 		UMETA(DisplayName = "Reset"), 
 };
 
 UENUM(BlueprintType)

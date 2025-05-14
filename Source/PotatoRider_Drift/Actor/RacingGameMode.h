@@ -32,13 +32,17 @@ private:
 	float CountDownTimer; 
 	float PlayTimer; 
 
-	int LapCount; 
+	int LapCount;
+	UPROPERTY(EditAnywhere) 
 	int MaxLapCount = 3; 
 	float LapTimer; 
 	float BestLapTimer;
 
+	UPROPERTY(EditAnywhere) 
+	int LapPerResetPoint; 
+	
 	bool bIsRaceEnd; 
 
-	FTimerHandle CountDownTimerHandle; 
+	FTimerHandle CountDownTimerHandle;
 
 };

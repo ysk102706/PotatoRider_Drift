@@ -37,7 +37,7 @@ struct FSteeringDevice
 public: 
 	float HandleAngle;
 	float Max_Angle = 35.0f; 
-	float EndDriftAngle = 28.0f; 
+	float EndDriftAngle = 26.5f; 
 	float TireCircumference = PI * 0.71f; 
 
 	float Correction_Min_Vel; 
@@ -64,11 +64,10 @@ struct FDriftDevice
 public: 
 	float DriftAngle; 
 	float LastDriftDir; 
-	float Max_DriftAngle = 60.0f; 
+	float Max_DriftAngle = 70.0f; 
 	float LastDriftAngle; 
 	float Cur_LastDriftAngle;
 	float InertiaAngle; 
-	float FullDriftAngleRate; 
 	
 	float Deceleration_RPM; 
 	
@@ -144,7 +143,9 @@ public:
 	bool IsBoost(); 
 
 	void ResetHandleForce(); 
-	void BreakDrift(); 
+	void BreakDrift();
+
+	void OnCollisionDetection(); 
 	
 private:
 	void Deceleration();
