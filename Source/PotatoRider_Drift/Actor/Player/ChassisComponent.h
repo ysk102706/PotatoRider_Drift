@@ -76,8 +76,6 @@ public:
 	float DriftAngle; 
 	float LastDriftDir; 
 	float Max_DriftAngle = 60.0f; 
-	float LastDriftAngle; 
-	float Cur_LastDriftAngle; 
 	float InertiaAngle; 
 	
 	float Deceleration_RPM; 

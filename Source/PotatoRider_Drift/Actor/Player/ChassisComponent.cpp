@@ -111,11 +111,12 @@ void UChassisComponent::Accelerator(float Difference)
 		{
 			if (Steering.HandleAngle < 8.0f || CheckSteeringCorrection(Velocity) || FMath::Sign(Velocity) != FMath::Sign(Difference))
 			{ 
-				float IncreaseRPMRate = 1.0f - (Engine.RPM > 3000.0f ? (Engine.RPM - 3000.0f) / 1500.0f : 0.0f); 
-				Engine.RPM += Difference * 0.8f * IncreaseRPMRate; 
+				//float IncreaseRPMRate = 1.0f - (Engine.RPM > 3000.0f ? (Engine.RPM - 3000.0f) / 1500.0f : 0.0f); 
+				//Engine.RPM += Difference * 0.8f * IncreaseRPMRate; 
+				Engine.RPM = FMath::Lerp(Engine.RPM, (FMath::Sign(Difference) > 0 ? Engine.Default_Max_RPM : Engine.Reverse_Max_RPM), GetWorld()->GetDeltaSeconds() * 0.35f); 
 			} 
 		} 
-		Engine.RPM = FMath::Clamp(Engine.RPM, Engine.Reverse_Max_RPM, Engine.Default_Max_RPM);
+		//Engine.RPM = FMath::Clamp(Engine.RPM, Engine.Reverse_Max_RPM, Engine.Default_Max_RPM); 
 
 		if (Steering.bPressedHandle && !Engine.bPressedAccelerator)
 		{
@@ -162,7 +163,6 @@ void UChassisComponent::Handle(float Dir)
 			Drift.bUsedDrift = true; 
 			Drift.LastDriftDir = Dir; 
 			Drift.bRemainCentrifugalForce = false; 
-			Drift.LastDriftAngle = 0.0f; 
 			Drift.bDoubleDrift = Steering.HandleAngle > Drift.Max_DriftAngle - 20.0f && FMath::Sign(Steering.HandleAngle) == Dir; 
 
 			if (Drift.bConnectDrift) 
@@ -175,13 +175,14 @@ void UChassisComponent::Handle(float Dir)
 			GetWorld()->GetTimerManager().SetTimer(Drift.DriftTimerHandle, FTimerDelegate::CreateLambda([&]()
 			{ 
 				Drift.bDrift = false;
-				Drift.LastDriftAngle = Steering.HandleAngle - GetMaxAngle(); 
 				Drift.bRemainCentrifugalForce = true; 
 				
 				GetWorld()->GetTimerManager().ClearTimer(Drift.DriftTimerHandle); 
 				GetWorld()->GetTimerManager().SetTimer(Drift.DriftTimerHandle, FTimerDelegate::CreateLambda([&]()
 				{
 					Drift.bRemainCentrifugalForce = false; 
+					Drift.bDoubleDrift = false; 
+					SetVelocityToEngineRPM(false);
 
 					GetWorld()->GetTimerManager().ClearTimer(Drift.DriftTimerHandle); 
 				}), 0.5f, false); 
@@ -212,27 +213,30 @@ void UChassisComponent::Handle(float Dir)
 
 			if (Steering.TargetRotateDeceleration && Steering.HandleAngle > 8.0f)
 			{
-				Steering.RotateDeceleration += 13.89f * (Steering.TargetRotateDeceleration > 0 ? 1.0f : -1.0f);
+				/*Steering.RotateDeceleration += 13.89f * (Steering.TargetRotateDeceleration > 0 ? 1.0f : -1.0f);
 				Steering.RotateDeceleration = Steering.TargetRotateDeceleration > 0 ?
 					FMath::Clamp(Steering.RotateDeceleration, 0, Steering.TargetRotateDeceleration) : 
-					FMath::Clamp(Steering.RotateDeceleration, Steering.TargetRotateDeceleration, 0); 
+					FMath::Clamp(Steering.RotateDeceleration, Steering.TargetRotateDeceleration, 0); */ 
+				Steering.RotateDeceleration = FMath::Lerp(Steering.RotateDeceleration, Steering.TargetRotateDeceleration, GetWorld()->GetDeltaSeconds() * 0.3f); 
 			} 
 		} 
 
-		if (FMath::Abs(Velocity) > 3.0f)
-		{ 
-			Steering.HandleAngle += Dir * (Drift.bDrift ? (IsBoost() ? 2.5f : 1.0f) : (Drift.bRemainCentrifugalForce ? (Drift.LastDriftDir == Dir ? 0.15f : 0.5f) : (IsBoost() ? 1.0f : 0.65f)));
-			Steering.bPressedHandle = FMath::Abs(Steering.HandleAngle) > 10.0f; 
-		} 
-
-		float MaxAngle = GetMaxAngle();
+		float MaxAngle = GetMaxAngle() * Dir;
 		if (IsDrift())  
 		{ 
-			Drift.DriftAngle = Drift.Max_DriftAngle - MaxAngle; 
+			Drift.DriftAngle = Drift.Max_DriftAngle * Dir - MaxAngle; 
 		}  
 		MaxAngle += Drift.DriftAngle; 
+
+		if (FMath::Abs(Velocity) > 3.0f)
+		{ 
+			//Steering.HandleAngle += Dir * (Drift.bDrift ? (IsBoost() ? 2.5f : 1.0f) : (Drift.bRemainCentrifugalForce ? (Drift.LastDriftDir == Dir ? 0.15f : 0.5f) : (IsBoost() ? 1.0f : 0.65f)));
+			float RotateHandleRate = (Drift.bDrift ? (IsBoost() ? 2.5f : 1.0f) : (Drift.bRemainCentrifugalForce ? (Drift.LastDriftDir == Dir ? 0.15f : 0.5f) : (IsBoost() ? 1.0f : 0.65f))); 
+			Steering.HandleAngle = FMath::Lerp(Steering.HandleAngle, MaxAngle, GetWorld()->GetDeltaSeconds() * RotateHandleRate * 2.0f);
+			Steering.bPressedHandle = FMath::Abs(Steering.HandleAngle) > 8.0f; 
+		} 
 		
-		Steering.HandleAngle = FMath::Clamp(Steering.HandleAngle, -MaxAngle, MaxAngle); 
+		//Steering.HandleAngle = FMath::Clamp(Steering.HandleAngle, -MaxAngle, MaxAngle); 
 	} 
 	else
 	{ 
@@ -248,7 +252,6 @@ void UChassisComponent::Handle(float Dir)
 		{
 			Drift.bDrift = false;
 			Drift.bRemainCentrifugalForce = true;
-			Drift.LastDriftAngle = Steering.HandleAngle - GetMaxAngle(); 
 			Drift.InertiaAngle = -1.0f;
 			GetWorld()->GetTimerManager().ClearTimer(Drift.DriftTimerHandle);
 			GetWorld()->GetTimerManager().ClearTimer(Drift.InertiaAngleTimerHandle);
@@ -278,7 +281,6 @@ void UChassisComponent::DriftDevice(bool bPressed)
 		{ 
 			Drift.bDrift = false;
 			Drift.bRemainCentrifugalForce = true;
-			Drift.LastDriftAngle = Steering.HandleAngle - GetMaxAngle(); 
 			Drift.InertiaAngle = -1.0f;
 			GetWorld()->GetTimerManager().ClearTimer(Drift.DriftTimerHandle);
 			GetWorld()->GetTimerManager().ClearTimer(Drift.InertiaAngleTimerHandle);
@@ -332,7 +334,8 @@ FQuat UChassisComponent::CalculateHandleQuat()
 FQuat UChassisComponent::CalculateSuspensionQuat(FVector Axis)
 {
 	float Dir = FMath::Sign(CalculateVelocity(true) * 0.036f); 
-	float Angle = FMath::DegreesToRadians(10.0f * (1.0 - GetDriftAngleRate()) * FMath::Abs(Steering.HandleAngle) * Dir);
+	float Angle = FMath::DegreesToRadians(10.0f * (1.0 - GetDriftAngleRate()) * FMath::Sign(Steering.HandleAngle) * Dir); 
+	//GEngine->AddOnScreenDebugMessage(-1, 5, FColor::Red, FString::Printf(TEXT("%f"), 10.0f * (1.0 - GetDriftAngleRate()) * FMath::Abs(Steering.HandleAngle) * Dir));
 	return FQuat(Axis, Angle); 
 }
 
@@ -349,7 +352,6 @@ bool UChassisComponent::IsRemainDrift()
 float UChassisComponent::GetDriftAngleRate() 
 { 
 	return (1.0f - FMath::Abs(Steering.HandleAngle / Drift.Max_DriftAngle));
-	//return Drift.LastDriftAngle ? FMath::Abs((FMath::Max(GetMaxAngle(), FMath::Abs(Steering.HandleAngle)) - GetMaxAngle()) / Drift.LastDriftAngle) : 1.0f;
 } 
 
 float UChassisComponent::GetDriftDir()
@@ -374,7 +376,7 @@ bool UChassisComponent::IsBoost()
 
 float UChassisComponent::GetSuspensionAxisAngle()
 {
-	return FMath::Atan(Suspension.OverallLength / Suspension.OverallWidth); 
+	return FMath::Atan(Suspension.OverallLength / Suspension.OverallWidth) * FMath::Sign(Steering.HandleAngle); 
 }
 
 void UChassisComponent::Deceleration()
@@ -406,7 +408,6 @@ void UChassisComponent::RevertHandle()
 	else if (Drift.bRemainCentrifugalForce && Drift.DriftAngle < 8.0f) 
 	{ 
 		Drift.bRemainCentrifugalForce = false; 
-		Drift.LastDriftAngle = 0.0f; 
 		Drift.bDoubleDrift = false; 
 		//ApplyDriftDeceleration(); 
 		SetVelocityToEngineRPM(false); 
@@ -433,7 +434,6 @@ void UChassisComponent::RevertDrift()
 
 			Drift.bDrift = false;
 			Drift.bRemainCentrifugalForce = false;
-			Drift.LastDriftAngle = 0.0f; 
 			Drift.bBreakDrift = true; 
 			Drift.bDoubleDrift = false; 
 			Drift.bIsConnectDrift = false; 
@@ -472,7 +472,6 @@ void UChassisComponent::RevertDrift()
 			if (HandleAngle <= Steering.EndDriftAngle) 
 			{ 
 				Drift.bRemainCentrifugalForce = false;
-				Drift.LastDriftAngle = 0.0f;
 				Drift.bDoubleDrift = false; 
 				//ApplyDriftDeceleration();  
 				SetVelocityToEngineRPM(false); 
