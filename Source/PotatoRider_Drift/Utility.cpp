@@ -33,10 +33,14 @@ float Utility::CalculateCentrifugalForce(float Velocity, FPositionData Pre, FPos
 	double L2 = Pre.Forward.Dot(L1); 
 	
 	float x = FMath::Acos(Cur.Right.Dot(Pre.Right)); 
-	float L3 = FMath::Max(L2 / FMath::Max(FMath::Tan(x), KINDA_SMALL_NUMBER), KINDA_SMALL_NUMBER); 
-	float L4 = FMath::Max(FMath::Sqrt(L1.Length() * L1.Length() - L2 * L2), KINDA_SMALL_NUMBER);
+	// float L3 = FMath::Max(L2 / FMath::Max(FMath::Tan(x), KINDA_SMALL_NUMBER), KINDA_SMALL_NUMBER); 
+	// float tan = FMath::Tan(x);
+	// float L3 = tan < KINDA_SMALL_NUMBER ? 0 : L2 / tan; 
+	// float L4 = FMath::Max(FMath::Sqrt(L1.Length() * L1.Length() - L2 * L2), KINDA_SMALL_NUMBER);
 
-	return Velocity * Velocity / (L3 + L4);
+	float L3 = L2 / FMath::Sin(x); 
+	
+	return Velocity * Velocity / L3; 
 }
 
 FVector Utility::CalculateInelasticCollision(FVector Dir, float V, float e)

@@ -109,10 +109,10 @@ void UChassisComponent::Accelerator(float Difference)
 		float Velocity = CalculateVelocity(true) * 0.036f;
 		if (!IsDrift()) 
 		{
-			if (!Steering.bPressedHandle || CheckSteeringCorrection(Velocity) || FMath::Sign(Velocity) != FMath::Sign(Difference))
+			if (Steering.HandleAngle < 8.0f || CheckSteeringCorrection(Velocity) || FMath::Sign(Velocity) != FMath::Sign(Difference))
 			{ 
 				float IncreaseRPMRate = 1.0f - (Engine.RPM > 3000.0f ? (Engine.RPM - 3000.0f) / 1500.0f : 0.0f); 
-				Engine.RPM += Difference * 0.75f * IncreaseRPMRate; 
+				Engine.RPM += Difference * 0.8f * IncreaseRPMRate; 
 			} 
 		} 
 		Engine.RPM = FMath::Clamp(Engine.RPM, Engine.Reverse_Max_RPM, Engine.Default_Max_RPM);
@@ -210,7 +210,7 @@ void UChassisComponent::Handle(float Dir)
 				}
 			} 
 
-			if (Steering.TargetRotateDeceleration)
+			if (Steering.TargetRotateDeceleration && Steering.HandleAngle > 8.0f)
 			{
 				Steering.RotateDeceleration += 13.89f * (Steering.TargetRotateDeceleration > 0 ? 1.0f : -1.0f);
 				Steering.RotateDeceleration = Steering.TargetRotateDeceleration > 0 ?
@@ -322,15 +322,19 @@ float UChassisComponent::CalculateVelocity(bool bIncludeBooster)
 	return Steering.TireCircumference * FinalRPM * 1.67f - Steering.RotateDeceleration; 
 } 
 
-FQuat UChassisComponent::CalculateQuat()
-{
-	float Angle = 0.0f; 
-	float Velocity = CalculateVelocity(true) * 0.036f;
-	
-	Angle = FMath::DegreesToRadians(Steering.HandleAngle * GetWorld()->GetDeltaSeconds() * (Velocity >= 0 ? 1.0f : -1.0f)); 
-	
+FQuat UChassisComponent::CalculateHandleQuat()
+{ 
+	float Dir = FMath::Sign(CalculateVelocity(true) * 0.036f); 
+	float Angle = FMath::DegreesToRadians(Steering.HandleAngle * GetWorld()->GetDeltaSeconds() * Dir); 
 	return FQuat(FVector(0, 0, 1), Angle); 
-} 
+}
+
+FQuat UChassisComponent::CalculateSuspensionQuat(FVector Axis)
+{
+	float Dir = FMath::Sign(CalculateVelocity(true) * 0.036f); 
+	float Angle = FMath::DegreesToRadians(10.0f * (1.0 - GetDriftAngleRate()) * FMath::Abs(Steering.HandleAngle) * Dir);
+	return FQuat(Axis, Angle); 
+}
 
 bool UChassisComponent::IsDrift()
 {
@@ -344,7 +348,7 @@ bool UChassisComponent::IsRemainDrift()
 
 float UChassisComponent::GetDriftAngleRate() 
 { 
-	return FMath::Abs(Steering.HandleAngle / Drift.Max_DriftAngle) * 0.35 * (IsBoost() ? 0.7f : 1.0f);
+	return (1.0f - FMath::Abs(Steering.HandleAngle / Drift.Max_DriftAngle));
 	//return Drift.LastDriftAngle ? FMath::Abs((FMath::Max(GetMaxAngle(), FMath::Abs(Steering.HandleAngle)) - GetMaxAngle()) / Drift.LastDriftAngle) : 1.0f;
 } 
 
@@ -366,7 +370,12 @@ bool UChassisComponent::IsFullDrift()
 bool UChassisComponent::IsBoost()
 { 
 	return Booster.bBoost || Booster.bMomentBoost || Booster.bStartBoost;
-} 
+}
+
+float UChassisComponent::GetSuspensionAxisAngle()
+{
+	return FMath::Atan(Suspension.OverallLength / Suspension.OverallWidth); 
+}
 
 void UChassisComponent::Deceleration()
 {
@@ -394,7 +403,7 @@ void UChassisComponent::RevertHandle()
 			Steering.HandleAngle = FMath::Min(Drift.Max_DriftAngle, FMath::Abs(Steering.HandleAngle)) * FMath::Sign(Steering.HandleAngle); 
 		} 
 	} 
-	else if (Drift.bRemainCentrifugalForce && Drift.DriftAngle < 5.0f) 
+	else if (Drift.bRemainCentrifugalForce && Drift.DriftAngle < 8.0f) 
 	{ 
 		Drift.bRemainCentrifugalForce = false; 
 		Drift.LastDriftAngle = 0.0f; 
@@ -444,14 +453,12 @@ void UChassisComponent::RevertDrift()
 
 		if (Drift.bRemainCentrifugalForce) 
 		{ 
-			Booster.BoosterGauge += FMath::Min(0.2f, FMath::Abs(Velocity) / 450.0f) * (Drift.bIsConnectDrift ? 1.5f : 1.0f);
+			Booster.BoosterGauge += FMath::Min(0.35f, FMath::Abs(Velocity) / 450.0f) * (Drift.bIsConnectDrift ? 1.5f : 1.0f);
 			Booster.BoosterGauge = FMath::Min(Booster.BoosterGauge, Booster.Max_BoosterGauge); 
 
 			float DriftAngle = FMath::Clamp(Steering.HandleAngle - 48.0f, -12.0f, 12.0f) * 0.1f; 
 			Drift.Deceleration_RPM -= 10.0f * (Engine.RPM + Booster.Additional_RPM + Drift.Deceleration_RPM > 0 ? 1.0f : -1.0f) * 
-				(DriftAngle > 0.0f ? FMath::Max(0.0f, DriftAngle - 0.2f) : FMath::Min(0.0f, DriftAngle + 0.2f));
-			float Max_Deceleration = (Drift.bDoubleDrift ? 0.0f : 200.0f); 
-			Drift.Deceleration_RPM = FMath::Clamp(Drift.Deceleration_RPM, -Max_Deceleration, Max_Deceleration); 
+				(DriftAngle > 0.0f ? FMath::Max(0.0f, DriftAngle - 0.2f) : FMath::Min(0.0f, DriftAngle + 0.2f)); 
 		} 
 		else if (!IsBoost() && Velocity > 100.0f) 
 		{ 
@@ -511,12 +518,13 @@ void UChassisComponent::RevertDrift()
 	} 
 	else 
 	{ 
-		Booster.BoosterGauge += FMath::Min(0.2f, FMath::Abs(Velocity) / 450.0f) * (Drift.bIsConnectDrift ? 1.5f : 1.0f) * (IsBoost() ? 2.5f : 1.0f); 
+		Booster.BoosterGauge += FMath::Min(0.35f, FMath::Abs(Velocity) / 450.0f) * (Drift.bIsConnectDrift ? 1.5f : 1.0f) * (IsBoost() ? 2.5f : 1.0f); 
 		Booster.BoosterGauge = FMath::Min(Booster.BoosterGauge, Booster.Max_BoosterGauge); 
 
-		Drift.Deceleration_RPM -= (Drift.bDoubleDrift ? 2.5f : 10.0f) * (Engine.RPM + Booster.Additional_RPM + Drift.Deceleration_RPM > 0 ? 1.0f : -1.0f); 
-		float Max_Deceleration = (Drift.bDoubleDrift ? 0.0f : 1250.0f); 
-		Drift.Deceleration_RPM = FMath::Clamp(Drift.Deceleration_RPM, -Max_Deceleration, Max_Deceleration); 
+		if (FMath::Abs(Steering.HandleAngle) > 8.0f && FMath::Sign(Steering.HandleAngle) == Drift.LastDriftDir)
+		{
+			Drift.Deceleration_RPM -= (Drift.bDoubleDrift ? 10.0f : 28.0f) * (Engine.RPM + Booster.Additional_RPM + Drift.Deceleration_RPM > 0 ? 1.0f : -1.0f);
+		} 
 	} 
 
 	auto* BoosterUI = GameMode->UI()->GetWidget<UBoosterUI>(GetWorld(), EWidgetType::BoosterUI);

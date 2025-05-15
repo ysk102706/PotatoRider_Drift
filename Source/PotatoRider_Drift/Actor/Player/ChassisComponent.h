@@ -54,7 +54,18 @@ public:
 	float CameraAngleRate; 
 	
 	bool bPressedHandle; 
-}; 
+};
+
+USTRUCT(BlueprintType)
+struct FSuspensionDevice
+{
+	GENERATED_BODY()
+
+public:
+	float Angle;
+	float OverallLength = 135.0f;
+	float OverallWidth = 75.0f; 
+};
 
 USTRUCT(BlueprintType) 
 struct FDriftDevice
@@ -64,9 +75,9 @@ struct FDriftDevice
 public: 
 	float DriftAngle; 
 	float LastDriftDir; 
-	float Max_DriftAngle = 70.0f; 
+	float Max_DriftAngle = 60.0f; 
 	float LastDriftAngle; 
-	float Cur_LastDriftAngle;
+	float Cur_LastDriftAngle; 
 	float InertiaAngle; 
 	
 	float Deceleration_RPM; 
@@ -133,14 +144,16 @@ public:
 	void BoosterDevice(); 
 
 	float CalculateVelocity(bool bIncludeBooster); 
-	FQuat CalculateQuat();
+	FQuat CalculateHandleQuat();
+	FQuat CalculateSuspensionQuat(FVector Axis); 
 	bool IsDrift(); 
 	bool IsRemainDrift(); 
 	float GetDriftAngleRate(); 
 	float GetDriftDir(); 
 	bool IsBreakDrift(); 
 	bool IsFullDrift(); 
-	bool IsBoost(); 
+	bool IsBoost();
+	float GetSuspensionAxisAngle(); 
 
 	void ResetHandleForce(); 
 	void BreakDrift();
@@ -162,7 +175,8 @@ private:
 
 	FEngineDevice Engine; 
 	FPowerTrainDevice PowerTrain; 
-	FSteeringDevice Steering; 
+	FSteeringDevice Steering;
+	FSuspensionDevice Suspension; 
 	FDriftDevice Drift; 
 	FBoosterDevice Booster;
 	

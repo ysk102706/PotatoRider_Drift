@@ -64,21 +64,29 @@ private:
 	class USpringArmComponent* SpringArmComp;
 	UPROPERTY(EditAnywhere)
 	class UCameraComponent* CameraComp;
+	UPROPERTY(EditAnywhere)
+	class USceneCaptureComponent2D* MinimapCaptureComp; 
 	
 	UPROPERTY(EditAnywhere)
-	class UNiagaraComponent* LeftSkidMark;
+	class UNiagaraComponent* L_SkidMark;
 	UPROPERTY(EditAnywhere)
-	class UNiagaraComponent* RightSkidMark; 
+	class UNiagaraComponent* R_SkidMark; 
 	UPROPERTY(EditAnywhere)
-	class UNiagaraComponent* LeftBooster;
+	class UNiagaraComponent* L_Booster;
 	UPROPERTY(EditAnywhere)
-	class UNiagaraComponent* RightBooster; 
+	class UNiagaraComponent* R_Booster; 
 	UPROPERTY(EditAnywhere)
-	class UNiagaraComponent* LeftRedLight; 
+	class UNiagaraComponent* L_RedLight; 
 	UPROPERTY(EditAnywhere)
-	class UNiagaraComponent* RightRedLight; 
+	class UNiagaraComponent* R_RedLight; 
 	UPROPERTY(EditAnywhere)
-	class UNiagaraComponent* AirResistance; 
+	class UNiagaraComponent* AirResistance;
+	UPROPERTY(EditAnywhere)
+	class UNiagaraComponent* L_DriftSpark; 
+	UPROPERTY(EditAnywhere)
+	class UNiagaraComponent* R_DriftSpark; 
+	UPROPERTY(EditAnywhere) 
+	class UNiagaraComponent* Collision_VFX; 
 	
 	UPROPERTY() 
 	class UChassisComponent* ChassisComp; 
@@ -102,8 +110,10 @@ private:
 	float GravityForce = 981.0f; 
 
 	UPROPERTY() 
-	class AResetPoint* ResetPoint; 
-	
-	void MySetActorLocation(const FVector& NewLocation, bool bSweep);
+	class AResetPoint* ResetPoint;
+
+	FTimerHandle CollisionParticleTimerHandle; 
+
+	//void MySetActorLocation(const FVector& NewLocation, bool bSweep);
 
 };
