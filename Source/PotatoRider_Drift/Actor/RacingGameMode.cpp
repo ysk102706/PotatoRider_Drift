@@ -74,6 +74,34 @@ float ARacingGameMode::GetTimer()
 	return CountDownTimer;
 }
 
+bool ARacingGameMode::IsRaceEnd()
+{
+	return bIsRaceEnd; 
+}
+
+int ARacingGameMode::GetResetPointIdx()
+{
+	return ResetPointIdx; 
+}
+
+bool ARacingGameMode::IsUpdateResetPoint(int Idx)
+{
+	bool c1 = ResetPointIdx + 1 == Idx; 	
+	bool c2 = ResetPointIdx != 1 && ResetPointIdx - 1 == Idx; 	
+	bool c3 = (ResetPointIdx) % LapPerResetPoint == Idx;
+
+	bool ret = c1 || c2 || c3;
+	if (!ret)
+	{
+		
+	}
+	else
+	{
+		ResetPointIdx = Idx; 
+	}
+	return ret;
+}
+
 void ARacingGameMode::UpdateLapTime()
 { 
 	if (LapCount > MaxLapCount)
@@ -90,14 +118,11 @@ void ARacingGameMode::UpdateLapTime()
 		pc->SetInputMode(FInputModeUIOnly()); 
 		return; 
 	}
+
+	ResetPointIdx = 1; 
 	
 	BestLapTimer = LapCount > 1 ? (BestLapTimer == 0.0f ? LapTimer : FMath::Min(BestLapTimer, LapTimer)) : 0.0f; 
 	UIManagerObject->GetWidget<UTimerUI>(GetWorld(), EWidgetType::TimerUI)->UpdateLapTime(LapCount++, BestLapTimer); 
 
 	LapTimer = 0.0f; 
-}
-
-bool ARacingGameMode::IsRaceEnd()
-{
-	return bIsRaceEnd; 
 }

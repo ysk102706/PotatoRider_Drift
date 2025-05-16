@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "../../Utility.h"
 #include "ChassisComponent.generated.h"
 
 USTRUCT(BlueprintType)
@@ -111,15 +112,17 @@ public:
 	float Default_Max_Additional_RPM = 0.0f; 
 	float Normal_Max_Additional_RPM = 6000.0f; 
 	float Rotated_Normal_Max_Additional_RPM = 1500.0f; 
-	float Moment_Max_Additional_RPM = 1250.0f; 
-	float PerfectStart_Max_Additional_RPM = 3500.0f; 
-	float GoodStart_Max_Additional_RPM = 3000.0f; 
+	float Moment_Max_Additional_RPM = 850.0f; 
+	float PerfectStart_Max_Additional_RPM = 3000.0f; 
+	float GoodStart_Max_Additional_RPM = 2500.0f; 
 	
 	bool bBoost; 
 	bool bRotatedBoost; 
 	bool bMomentBoostTiming;
 	bool bMomentBoost; 
-	bool bStartBoost; 
+	bool bStartBoost;
+	bool bUsedMomentBoost;
+	bool bUsedStartBoost;
 
 	FTimerHandle BoosterTimerHandle;
 	FTimerHandle MomentBoosterTimerHandle; 
@@ -134,6 +137,7 @@ class POTATORIDER_DRIFT_API UChassisComponent : public UActorComponent
 public:	
 	UChassisComponent(); 
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	void Accelerator(float Difference);
@@ -152,7 +156,8 @@ public:
 	bool IsFullDrift(); 
 	bool IsBoost();
 	float GetSuspensionAxisAngle(); 
-
+	bool IsRedLight(); 
+	
 	void ResetHandleForce(); 
 	void BreakDrift();
 
@@ -166,11 +171,12 @@ private:
 
 	void SetVelocityToEngineRPM(bool bIncludeBooster); 
 	void UpdateCameraAngleRate(); 
-	void ApplyDriftDeceleration(); 
 	
 	bool CheckSteeringCorrection(float CurVelocity);
 	float GetMaxAngle(); 
 
+	void PlaySound(ESoundType Type); 
+	
 	FEngineDevice Engine; 
 	FPowerTrainDevice PowerTrain; 
 	FSteeringDevice Steering;
@@ -178,6 +184,9 @@ private:
 	FDriftDevice Drift; 
 	FBoosterDevice Booster;
 	
+	UPROPERTY(EditAnywhere, Category = Sound)
+	TArray<class USoundBase*> Sound; 
+
 	UPROPERTY()
 	class ARacingGameMode* GameMode;
 };

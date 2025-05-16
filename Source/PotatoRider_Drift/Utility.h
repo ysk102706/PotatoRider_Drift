@@ -20,11 +20,21 @@ enum class EInputAction : uint8
 UENUM(BlueprintType)
 enum class EWidgetType : uint8
 {
-	BoosterUI UMETA(DisplayName = "BoosterUI"), 
-	SpeedometerUI UMETA(DisplayName = "SpeedometerUI"), 
-	CountDownUI UMETA(DisplayName = "CountDownUI"),
-	TimerUI UMETA(DisplayName = "TimerUI"),
-	ResultUI UMETA(DisplayName = "ResultUI"),
+	BoosterUI		UMETA(DisplayName = "BoosterUI"), 
+	SpeedometerUI	UMETA(DisplayName = "SpeedometerUI"), 
+	CountDownUI		UMETA(DisplayName = "CountDownUI"),
+	TimerUI			UMETA(DisplayName = "TimerUI"),
+	ResultUI		UMETA(DisplayName = "ResultUI"),
+};
+
+UENUM(BlueprintType)
+enum class ESoundType : uint8
+{
+	Drift		UMETA(DisplayName = "Drift"), 
+	Collision	UMETA(DisplayName = "Collision"), 
+	NormalBoost UMETA(DisplayName = "NormalBoost"),
+	MomentBoost UMETA(DisplayName = "MomentBoost"),
+	StartBoost	UMETA(DisplayName = "StartBoost"),
 };
 
 class POTATORIDER_DRIFT_API Utility

@@ -26,6 +26,7 @@ class POTATORIDER_DRIFT_API AMain_Player : public APawn
 public:
 	AMain_Player();
 	virtual void BeginPlay() override; 
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override; 
 	virtual void Tick(float DeltaTime) override; 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
@@ -65,6 +66,8 @@ private:
 	UPROPERTY(EditAnywhere)
 	class UCameraComponent* CameraComp;
 	UPROPERTY(EditAnywhere)
+	class USpringArmComponent* MinimapSpringArmComp;
+	UPROPERTY(EditAnywhere)
 	class USceneCaptureComponent2D* MinimapCaptureComp; 
 	
 	UPROPERTY(EditAnywhere)
@@ -88,13 +91,13 @@ private:
 	UPROPERTY(EditAnywhere) 
 	class UNiagaraComponent* Collision_VFX; 
 	
-	UPROPERTY() 
+	UPROPERTY(EditAnywhere) 
 	class UChassisComponent* ChassisComp; 
 	
 	UPROPERTY(EditAnywhere, Category = Input)
 	class UInputMappingContext* IMC_Player;
 	UPROPERTY(EditAnywhere, Category = Input)
-	TArray<class UInputAction*> IA; 
+	TArray<class UInputAction*> IA;
 
 	TArray<float> AccelerationInputStack; 
 	TArray<float> HandleInputStack; 
@@ -113,7 +116,5 @@ private:
 	class AResetPoint* ResetPoint;
 
 	FTimerHandle CollisionParticleTimerHandle; 
-
-	//void MySetActorLocation(const FVector& NewLocation, bool bSweep);
 
 };

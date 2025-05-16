@@ -4,6 +4,7 @@
 #include "StartAndGoalLine.h" 
 #include "Components/BoxComponent.h" 
 #include "RacingGameMode.h" 
+#include "Player/Main_Player.h"
 
 AStartAndGoalLine::AStartAndGoalLine()
 { 
@@ -30,6 +31,9 @@ void AStartAndGoalLine::Tick(float DeltaTime)
 
 void AStartAndGoalLine::OnBoxCompBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 { 
-	GameMode->UpdateLapTime(); 
+	if (GameMode->GetResetPointIdx() == 0) 
+	{
+		GameMode->UpdateLapTime();
+	} 
 }
 

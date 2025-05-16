@@ -19,8 +19,11 @@ public:
 	class UUIManager* UI(); 
 
 	float GetTimer(); 
+	bool IsRaceEnd();
+	int GetResetPointIdx();
+	bool IsUpdateResetPoint(int Idx); 
+
 	void UpdateLapTime();
-	bool IsRaceEnd(); 
 	
 private: 
 	UPROPERTY(EditAnywhere)
@@ -39,9 +42,10 @@ private:
 	float BestLapTimer;
 
 	UPROPERTY(EditAnywhere) 
-	int LapPerResetPoint; 
+	int LapPerResetPoint = 1; 
 	
-	bool bIsRaceEnd; 
+	bool bIsRaceEnd;
+	int ResetPointIdx = 0; 
 
 	FTimerHandle CountDownTimerHandle;
 

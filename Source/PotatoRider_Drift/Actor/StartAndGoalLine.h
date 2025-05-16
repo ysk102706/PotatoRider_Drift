@@ -23,8 +23,6 @@ private:
 	UPROPERTY(EditAnywhere) 
 	class UBoxComponent* BoxComp; 
 
-	int Count; 
-
 	UPROPERTY()
 	class ARacingGameMode* GameMode; 
 
