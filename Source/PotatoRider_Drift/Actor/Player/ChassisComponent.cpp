@@ -135,7 +135,7 @@ void UChassisComponent::Accelerator(float Difference)
 		} 
 		
 		if (Steering.bPressedHandle && !Engine.bPressedAccelerator)
-		{
+		{ 
 			if (!CheckSteeringCorrection(Velocity))
 			{
 				SetVelocityToEngineRPM(false); 
@@ -179,7 +179,7 @@ void UChassisComponent::Handle(float Dir)
 			Drift.bUsedDrift = true; 
 			Drift.LastDriftDir = Dir; 
 			Drift.bRemainCentrifugalForce = false; 
-			Drift.bDoubleDrift = Steering.HandleAngle > Drift.Max_DriftAngle - 20.0f && FMath::Sign(Steering.HandleAngle) == Dir; 
+			Drift.bDoubleDrift = Steering.HandleAngle > Drift.Max_DriftAngle - 10.0f && FMath::Sign(Steering.HandleAngle) == Dir; 
 
 			if (Drift.bConnectDrift) 
 			{ 
@@ -237,7 +237,7 @@ void UChassisComponent::Handle(float Dir)
 
 		if (FMath::Abs(Velocity) > 3.0f)
 		{ 
-			float RotateHandleRate = (Drift.bDrift ? (IsBoost() ? 1.15f : 0.9f) : (Drift.bRemainCentrifugalForce ? (Drift.LastDriftDir == Dir ? 0.15f : 0.5f) : (IsBoost() ? 0.5f : 0.65f))); 
+			float RotateHandleRate = (Drift.bDrift ? (IsBoost() ? 0.8f : 0.85f) : (Drift.bRemainCentrifugalForce ? (Drift.LastDriftDir == Dir ? 0.15f : 0.5f) : (IsBoost() ? 0.5f : 0.65f))); 
 			Steering.HandleAngle += Dir * RotateHandleRate * GetWorld()->GetDeltaSeconds() * 120.0f;
 			Steering.bPressedHandle = FMath::Abs(Steering.HandleAngle) > 8.0f; 
 		}
@@ -425,7 +425,6 @@ void UChassisComponent::RevertHandle()
 		{
 			float DeltaTime = GetWorld()->GetDeltaSeconds(); 
 			Steering.HandleAngle = FMath::Lerp(Steering.HandleAngle, 0.0f, DeltaTime * (Drift.bRemainCentrifugalForce ? 0.6f * Drift.InertiaAngle : 1.8f)); 
-			Steering.HandleAngle = FMath::Min(Drift.Max_DriftAngle, FMath::Abs(Steering.HandleAngle)) * FMath::Sign(Steering.HandleAngle); 
 		} 
 	} 
 	else if (Drift.bRemainCentrifugalForce && Drift.DriftAngle < 8.0f) 

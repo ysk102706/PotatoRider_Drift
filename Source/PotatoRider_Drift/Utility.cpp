@@ -39,7 +39,7 @@ float Utility::CalculateCentrifugalForce(float Velocity, FPositionData Pre, FPos
 	// float L4 = FMath::Max(FMath::Sqrt(L1.Length() * L1.Length() - L2 * L2), KINDA_SMALL_NUMBER);
 
 	float L3 = L2 / FMath::Sin(x); 
-	
+
 	return Velocity * Velocity / L3; 
 }
 

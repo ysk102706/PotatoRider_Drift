@@ -15,7 +15,7 @@ void UBoosterUI::UpdateBooster(int Count)
 	FLinearColor None(1.0f, 1.0f, 1.0f, 0.0f); 
 	FLinearColor Booster(1.0f, 1.0f, 1.0f, 1.0f); 
 
-	switch (Count)
+	switch (Count) 
 	{
 	case 0:
 		IMG_Slot1->SetColorAndOpacity(None); 
