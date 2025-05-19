@@ -46,12 +46,12 @@ void ARacingGameMode::Tick(float DeltaSeconds)
 { 
 	Super::Tick(DeltaSeconds); 
 
-	if (CountDownTimer < 5.5f) 
+	if (CountDownTimer < 5.75f) 
 	{ 
 		CountDownTimer += DeltaSeconds; 
 	} 
-	else
-	{
+	else 
+	{ 
 		UIManagerObject->HideWidget(GetWorld(), EWidgetType::CountDownUI); 
 	}
 

@@ -137,10 +137,10 @@ void AMain_Player::Tick(float DeltaTime)
 	FQuat CorrectedQ = FQuat(FVector(0, 0, 1), Q.GetAngle() * Dir * QuatCorrectedRate);
 	
 	FVector RotatedForward = (ChassisComp->IsDrift() && !ChassisComp->IsFullDrift() || ChassisComp->IsRemainDrift() ? Q : CorrectedQ).RotateVector(Forward);
-	CentrifugalForceDir = FMath::Lerp(CentrifugalForceDir, FVector(0), DeltaTime * 30.0f);  
+	CentrifugalForceDir = FVector(0); 
 	FPositionData CurPositionData = {GetActorLocation(), Forward, Right * -ChassisComp->GetDriftDir()}; 
 	if (Utility::Between_EE(CorrectedVelocity * 0.036f, 20.0f, 350.0f) && ChassisComp->IsDrift() && LastPositionData.Right.Dot(Right * -ChassisComp->GetDriftDir()) > 0.0f && Dir == ChassisComp->GetDriftDir())
-	{
+	{ 
 		CentrifugalForceDir = Right * -ChassisComp->GetDriftDir(); 
 		CurPositionData.Right = CentrifugalForceDir; 
 		float CentrifugalForce = Utility::CalculateCentrifugalForce(Velocity, LastPositionData, CurPositionData);
@@ -170,19 +170,19 @@ void AMain_Player::Tick(float DeltaTime)
 	bool RunwayRet = GetWorld()->LineTraceSingleByChannel(RunwayHit, Start, End, ECollisionChannel::ECC_GameTraceChannel5, CQP); 
 	SetActorLocation(GetActorLocation() + (GroundCheck ? FVector(0) : FVector(0, 0, -1) * GravityForce * DeltaTime)); 
 	
-	float MeshAngle = Q.GetAngle() * Dir / DeltaTime;
-	FQuat MeshQ(FVector(0, 0, 1), MeshAngle);
+	float MeshAngle = Q.GetAngle() * Dir / DeltaTime; 
+	FQuat MeshQ(FVector(0, 0, 1), MeshAngle); 
 	FRotator MeshRot = MeshQ.RotateVector(Forward).Rotation(); 
 	if (RunwayRet || GroundCheck)
 	{ 
-		PitchAngle = FMath::Acos(FVector(0, 0, 1).Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal)); 
-		float PitchAngleDir = FMath::Sign(Forward.GetSafeNormal2D().Dot((RunwayRet ? RunwayHit : GroundHit).ImpactNormal));
-		MeshRot.Pitch = FMath::RadiansToDegrees(PitchAngle * -PitchAngleDir); 
 		FVector X = (RunwayRet ? RunwayHit : GroundHit).ImpactNormal; 
+		PitchAngle = FMath::Acos(FVector(0, 0, 1).Dot(X)); 
+		float PitchAngleDir = FMath::Sign(Forward.GetSafeNormal2D().Dot(X));
+		MeshRot.Pitch = FMath::RadiansToDegrees(PitchAngle * -PitchAngleDir); 
 		if (GroundCheck)
         {
 			SetActorLocation(GroundHit.ImpactPoint + X * 50.0f); 
-		}
+		} 
 	}
 	else 
 	{
@@ -192,7 +192,7 @@ void AMain_Player::Tick(float DeltaTime)
 	FVector Axis = FQuat(FVector(0, 0, 1), ChassisComp->GetSuspensionAxisAngle()).RotateVector(Forward);
 	FQuat SuspensionQ = ChassisComp->CalculateSuspensionQuat(Axis); 
 	//MeshComp->SetRelativeRotation(SuspensionQ.RotateVector(FVector(1, 0, 0)).Rotation()); 
-	
+
 	if (!ChassisComp->IsFullDrift())
 	{ 
 		CameraRot = MeshQ.UnrotateVector(FVector(1.0f, 0.0f, 0.0f)).Rotation();
@@ -208,11 +208,12 @@ void AMain_Player::Tick(float DeltaTime)
 		{ 
 			CameraRot = FMath::Lerp(SpringArmComp->GetRelativeRotation(), CameraRot, (ChassisComp->IsFullDrift() ? 1.0f : DeltaTime * 12.0f)); 
 		}
-		AimPoint->SetRelativeLocation(CameraRot.Vector() * 200.0f);
+		AimPoint->SetRelativeLocation(CameraRot.Vector() * 200.0f); 
 		SpringArmComp->SetRelativeRotation(CameraRot); 
 		MinimapSpringArmComp->SetRelativeRotation(CameraRot); 
 		SpringArmComp->TargetArmLength = FMath::Lerp(SpringArmComp->TargetArmLength, ChassisComp->IsBoost() ? 800.0f : 650.0f, DeltaTime * 3.0f);
 	} 
+
 	Forward = FQuat(Right, PitchAngle).UnrotateVector(RotatedForward.GetSafeNormal2D());
 	if (FMath::Abs(Forward.Z) < 0.1f)
 	{ 

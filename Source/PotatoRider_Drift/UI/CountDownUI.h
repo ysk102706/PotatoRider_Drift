@@ -20,7 +20,10 @@ private:
 	UPROPERTY(meta = (BindWidget))
 	class UTextBlock* TB_CountDown;
 	UPROPERTY(meta = (BindWidget))
-	class UTextBlock* TB_Result;
+	class UTextBlock* TB_Result; 
+	
+	UPROPERTY(Transient, meta=(BindWidgetAnim))
+	class UWidgetAnimation* TextAnimation;
 
 	int Idx; 
 	UPROPERTY() 

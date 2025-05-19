@@ -19,7 +19,8 @@ bool UCountDownUI::UpdateCountDown()
 		return false;
 	}
 
-	TB_CountDown->SetText(CountDownMessages[Idx++]); 
+	TB_CountDown->SetText(CountDownMessages[Idx++]);
+	PlayAnimation(TextAnimation); 
 
 	return true; 
 }
