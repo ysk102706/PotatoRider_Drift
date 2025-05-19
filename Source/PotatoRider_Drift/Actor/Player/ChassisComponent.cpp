@@ -70,12 +70,12 @@ void UChassisComponent::Accelerator(float Difference)
 
 			if (!Booster.bUsedStartBoost && Difference > 0.0f)
 			{
-				if (Utility::Between_EE(CountDownTime, 3.3f, 4.8f))
+				if (Utility::Between_EE(CountDownTime, 3.5f, 5.5f))
 				{ 
 					Booster.bStartBoost = true; 
 					Booster.bUsedStartBoost = true; 
 				 
-					if (Utility::Between_EE(CountDownTime, 3.85f, 4.15f))
+					if (Utility::Between_EE(CountDownTime, 4.25f, 4.75f))
 					{ 
 						Booster.Max_Additional_RPM = Booster.PerfectStart_Max_Additional_RPM;
 						GameMode->UI()->GetWidget<UCountDownUI>(GetWorld(), EWidgetType::CountDownUI)->ShowResult("Perfect"); 
@@ -237,7 +237,7 @@ void UChassisComponent::Handle(float Dir)
 
 		if (FMath::Abs(Velocity) > 3.0f)
 		{ 
-			float RotateHandleRate = (Drift.bDrift ? (IsBoost() ? 0.8f : 0.85f) : (Drift.bRemainCentrifugalForce ? (Drift.LastDriftDir == Dir ? 0.15f : 0.5f) : (IsBoost() ? 0.5f : 0.65f))); 
+			float RotateHandleRate = (Drift.bDrift ? (IsBoost() ? 1.1f : 0.85f) : (Drift.bRemainCentrifugalForce ? (Drift.LastDriftDir == Dir ? 0.15f : 0.5f) : (IsBoost() ? 0.5f : 0.65f))); 
 			Steering.HandleAngle += Dir * RotateHandleRate * GetWorld()->GetDeltaSeconds() * 120.0f;
 			Steering.bPressedHandle = FMath::Abs(Steering.HandleAngle) > 8.0f; 
 		}
